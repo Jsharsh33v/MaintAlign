@@ -1,7 +1,13 @@
 {
-  "include": ["."],
-  "extraPaths": ["."],
-  "pythonVersion": "3.11",
+  "include": [
+    "."
+  ],
+  "extraPaths": [
+    "."
+  ],
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.13",
   "typeCheckingMode": "basic",
   "reportMissingImports": "warning",
   "reportMissingModuleSource": "none",
