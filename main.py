@@ -20,20 +20,20 @@ import logging
 import os
 import sys
 import json
-from generator import (
+from utils.generator import (
     generate_tiny, generate_small, generate_medium_easy,
     generate_medium_hard, generate_large, generate_xl,
     generate_industrial, generate_factory, generate_instance,
 )
-from solver import solve
-from baseline import fixed_interval_schedule, ALL_STRATEGIES
-from visualizer import (
+from core.solver import solve
+from core.baseline import fixed_interval_schedule, ALL_STRATEGIES
+from utils.visualizer import (
     plot_gantt, plot_cost_comparison,
     plot_technician_utilization, plot_sensitivity,
     plot_chain_breakdown,
 )
-from evaluator import compare_schedules
-from decomposer import solve_decomposed
+from analysis.evaluator import compare_schedules
+from core.decomposer import solve_decomposed
 
 logger = logging.getLogger(__name__)
 
@@ -327,7 +327,7 @@ Examples:
     )
 
     if args.csv:
-        from csv_loader import load_instance as csv_load
+        from utils.csv_loader import load_instance as csv_load
         inst = csv_load(args.csv, args.chains)
 
         # Apply options
@@ -370,7 +370,7 @@ Examples:
     elif args.sensitivity:
         run_sensitivity()
     elif args.instance:
-        from instance import ProblemInstance
+        from core.instance import ProblemInstance
         inst = ProblemInstance.load(args.instance)
         run_single(inst, time_limit=args.time_limit)
     else:

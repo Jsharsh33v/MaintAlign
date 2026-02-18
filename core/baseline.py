@@ -15,8 +15,8 @@ Chain machines use chain production values for cost calculation.
 
 import logging
 from typing import Dict, List
-from instance import ProblemInstance
-from solver import SolverResult, MaintenanceTask
+from core.instance import ProblemInstance
+from core.solver import SolverResult, MaintenanceTask
 
 logger = logging.getLogger(__name__)
 
@@ -190,8 +190,8 @@ def fixed_interval_schedule(
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO,
                         format="%(name)s | %(message)s")
-    from generator import generate_small, generate_medium_easy
-    from solver import solve
+    from utils.generator import generate_small, generate_medium_easy
+    from core.solver import solve
 
     for gen, label in [(generate_small, "SMALL"), (generate_medium_easy, "MED")]:
         inst = gen()

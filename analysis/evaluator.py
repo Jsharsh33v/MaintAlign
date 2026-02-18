@@ -14,8 +14,8 @@ import statistics
 from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 
-from instance import ProblemInstance
-from simulator import simulate_schedule, SimulationResult
+from core.instance import ProblemInstance
+from analysis.simulator import simulate_schedule, SimulationResult
 
 logger = logging.getLogger(__name__)
 

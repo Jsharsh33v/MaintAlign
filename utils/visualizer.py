@@ -11,8 +11,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import numpy as np
-from instance import ProblemInstance
-from solver import SolverResult
+from core.instance import ProblemInstance
+from core.solver import SolverResult
 
 logger = logging.getLogger(__name__)
 

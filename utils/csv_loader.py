@@ -24,7 +24,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from instance import MachineSpec, ProductionChain, ProblemInstance
+from core.instance import ProblemInstance, MachineSpec, ProductionChain
 
 logger = logging.getLogger(__name__)
 

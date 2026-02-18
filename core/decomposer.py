@@ -15,8 +15,8 @@ import logging
 import math
 from typing import Dict, List, Tuple, Optional
 
-from instance import ProblemInstance, MachineSpec, ProductionChain
-from solver import solve, SolverResult, MaintenanceTask
+from core.instance import ProblemInstance, MachineSpec, ProductionChain
+from core.solver import solve, SolverResult, MaintenanceTask
 
 logger = logging.getLogger(__name__)
 

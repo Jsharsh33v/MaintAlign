@@ -19,7 +19,7 @@ DIFFICULTY CONTROLS:
 import random
 import os
 import logging
-from instance import ProblemInstance, MachineSpec, ProductionChain
+from core.instance import MachineSpec, ProductionChain, ProblemInstance
 
 logger = logging.getLogger(__name__)
 

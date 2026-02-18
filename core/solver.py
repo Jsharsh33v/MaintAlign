@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Optional
 from ortools.sat.python import cp_model
 
-from instance import ProblemInstance, MachineSpec
+from core.instance import ProblemInstance, MachineSpec
 
 logger = logging.getLogger(__name__)
 
@@ -749,7 +749,7 @@ def solve(
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO,
                         format="%(name)s | %(message)s")
-    from generator import generate_tiny, generate_small, generate_medium_easy
+    from utils.generator import generate_tiny, generate_small, generate_medium_easy
 
     print("MaintAlign CP-SAT Solver v3 (Optimized Performance)\n")
 

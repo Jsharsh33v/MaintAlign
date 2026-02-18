@@ -14,7 +14,7 @@ import random
 from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass, field
 
-from instance import ProblemInstance, MachineSpec
+from core.instance import ProblemInstance, MachineSpec
 
 logger = logging.getLogger(__name__)
 

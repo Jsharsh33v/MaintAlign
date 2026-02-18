@@ -18,11 +18,11 @@ import pandas as pd
 import numpy as np
 
 # ── Project imports ──────────────────────────────────────────
-from instance import ProblemInstance, MachineSpec, ProductionChain
-from solver import solve, SolverResult
-from baseline import fixed_interval_schedule, ALL_STRATEGIES
-from evaluator import evaluate_schedule, compare_schedules
-from csv_loader import load_instance, load_machines_csv, load_chains_csv
+from core.instance import ProblemInstance, MachineSpec, ProductionChain
+from core.solver import solve, SolverResult
+from core.baseline import fixed_interval_schedule, ALL_STRATEGIES
+from analysis.evaluator import evaluate_schedule, compare_schedules
+from utils.csv_loader import load_instance, load_machines_csv, load_chains_csv
 
 # ── Page config ──────────────────────────────────────────────
 st.set_page_config(
@@ -396,7 +396,7 @@ def build_chain_topology(instance: ProblemInstance) -> go.Figure:
 # ═══════════════════════════════════════════════════════════════
 #  SIDEBAR
 # ═══════════════════════════════════════════════════════════════
-from generator import (
+from utils.generator import (
     generate_tiny, generate_small, generate_medium_easy,
     generate_medium_hard, generate_large, generate_xl,
     generate_industrial, generate_factory, generate_instance,
