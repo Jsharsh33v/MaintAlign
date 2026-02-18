@@ -1,0 +1,3 @@
+chain_name, machine_names, chain_value, retooling_cost
+Engine_Line, Mill_Horizontal;CNC_Lathe_01;Drill_Press;Welder_A, 800, 600
+Body_Line, Welder_B;Press_Hydraulic;Robot_Arm, 700, 450

@@ -1,0 +1,12 @@
+#CONFIG, factory_floor_A, 3, 30
+name, duration, pm_cost, cm_cost, prod_value, beta, eta, max_interval, min_gap
+CNC_Lathe_01, 1, 150, 1200, 80, 2.0, 8.0, 10, 1
+CNC_Lathe_02, 1, 150, 1200, 80, 2.0, 8.0, 10, 1
+Mill_Horizontal, 1, 400, 2500, 120, 1.8, 10.0, 12, 1
+Mill_Vertical, 1, 380, 1800, 100, 2.2, 12.0, 15, 1
+Drill_Press, 1, 500, 4000, 90, 2.0, 9.0, 10, 1
+Grinder, 2, 160, 600, 50, 1.9, 11.0, 14, 1
+Welder_A, 1, 450, 3000, 110, 2.8, 14.0, 16, 1
+Welder_B, 2, 420, 3100, 100, 2.4, 13.0, 12, 1
+Press_Hydraulic, 1, 490, 2500, 130, 2.6, 11.0, 11, 1
+Robot_Arm, 1, 410, 3200, 140, 2.5, 12.0, 13, 1
