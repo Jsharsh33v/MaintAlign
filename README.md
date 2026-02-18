@@ -7,16 +7,29 @@ MaintAlign uses Google OR-Tools CP-SAT to find optimal maintenance schedules tha
 ## Quick Start
 
 ```bash
-# 1. Install dependencies
+# 1. Create a virtual environment (one-time setup)
+python3 -m venv .venv
+
+# 2. Activate the virtual environment (run this every time you open a new terminal)
+source .venv/bin/activate
+
+# 3. Install dependencies (one-time, after activating venv)
 pip install -r requirements.txt
 
-# 2. Run demo (tiny + small + medium instances, ~30s)
+# 4. Run demo (tiny + small + medium instances, ~30s)
 python main.py
 
-# 3. Results appear in results/demo/ (Gantt charts, cost comparisons, JSON)
+# 5. Results appear in results/demo/ (Gantt charts, cost comparisons, JSON)
 ```
 
+> **Note:** You must activate the virtual environment (`source .venv/bin/activate`) before running any commands. The project's dependencies (OR-Tools, matplotlib, numpy) are installed inside `.venv` and won't be available otherwise.
+
 ## Usage
+
+```bash
+# Always activate venv first
+source .venv/bin/activate
+```
 
 | Command | What it does |
 |---|---|
@@ -30,14 +43,23 @@ python main.py
 
 ```
 MaintAlign/
-├── main.py          # Experiment runner (entry point)
-├── instance.py      # Data model (machines, chains, Weibull)
-├── generator.py     # Instance generator with difficulty presets
-├── solver.py        # CP-SAT solver (optional tasks + chain costs)
-├── baseline.py      # 4 baseline strategies for comparison
-├── visualizer.py    # Gantt charts, cost breakdown, utilization plots
-├── requirements.txt # Python dependencies
-└── README.md        # This file
+├── main.py              # Experiment runner (entry point)
+├── streamlit_app.py     # Interactive web dashboard
+├── core/                # Core data models & solvers
+│   ├── instance.py      # Data model (machines, chains, Weibull)
+│   ├── solver.py        # CP-SAT solver (optional tasks + chain costs)
+│   ├── baseline.py      # 4 baseline strategies for comparison
+│   └── decomposer.py    # Problem decomposition
+├── analysis/            # Simulation & evaluation
+│   ├── simulator.py     # Monte Carlo simulation engine
+│   └── evaluator.py     # Schedule evaluation & comparison
+├── utils/               # Utilities
+│   ├── generator.py     # Instance generator with difficulty presets
+│   └── visualizer.py    # Gantt charts, cost breakdown plots
+├── data/                # Instance data files
+├── results/             # Output (Gantt charts, JSON, comparisons)
+├── requirements.txt     # Python dependencies
+└── README.md            # This file
 ```
 
 ## Problem Overview
