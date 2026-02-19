@@ -1,13 +1,16 @@
 {
-  "include": [
-    "."
-  ],
-  "extraPaths": [
-    "."
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "extraPaths": [
+        "."
+      ]
+    }
   ],
   "venvPath": ".",
   "venv": ".venv",
   "pythonVersion": "3.13",
+  "pythonPlatform": "Darwin",
   "typeCheckingMode": "basic",
   "reportMissingImports": "warning",
   "reportMissingModuleSource": "none",
