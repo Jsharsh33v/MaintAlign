@@ -6,13 +6,25 @@ Simulate random machine failures against a given PM schedule.
 Uses Weibull failure model to generate random breakdown events between
 PM windows and calculates actual costs including emergency repairs,
 chain cascade downtime, and production losses.
+
+COST STRUCTURE (matches solver):
+  Standalone machines:
+    PM event cost = pm_cost + production_value × duration
+
+  Chain machines:
+    PM event cost = pm_cost
+      + if grouped (overlapping chain-mate PM): 50% retooling + 50% chain_value × d
+      + if isolated (no overlap):              full retooling + full chain_value × d
+
+  Failure cost (all machines):
+    CM event cost = cm_cost + production_loss × cm_duration
 """
 
 import logging
 import math
 import random
-from typing import Dict, List, Tuple, Optional
 from dataclasses import dataclass, field
+from typing import Dict, List, Tuple, Optional
 
 from core.instance import ProblemInstance, MachineSpec
 
@@ -35,8 +47,9 @@ class SimulationResult:
     """Result of one simulation run."""
     total_pm_cost: float = 0.0
     total_cm_cost: float = 0.0
-    total_downtime: int = 0
     total_production_loss: float = 0.0
+    total_retooling_cost: float = 0.0
+    total_downtime: int = 0
     total_cost: float = 0.0
     num_failures: int = 0
     events: List[SimulationEvent] = field(default_factory=list)
@@ -77,6 +90,35 @@ def _sample_weibull_failure(beta: float, eta: float, age: float) -> float:
     return t
 
 
+def _detect_chain_overlap(
+    m_idx: int,
+    pm_start: int,
+    pm_end: int,
+    instance: ProblemInstance,
+    schedule: Dict[int, List[int]],
+) -> bool:
+    """
+    Check if a PM event on machine m_idx overlaps with any chain-mate PM.
+
+    Overlap means the time windows [pm_start, pm_end) and [s2, s2+d2) intersect.
+    This mirrors the solver's opportunistic grouping logic.
+    """
+    chain = instance.get_chain_for_machine(m_idx)
+    if not chain:
+        return False
+
+    for mate_id in chain.machine_ids:
+        if mate_id == m_idx:
+            continue
+        mate_d = instance.machines[mate_id].maintenance_duration
+        for s2 in schedule.get(mate_id, []):
+            # Overlap: pm_start < s2 + mate_d  AND  s2 < pm_end
+            if pm_start < s2 + mate_d and s2 < pm_end:
+                return True
+
+    return False
+
+
 def simulate_schedule(
     instance: ProblemInstance,
     schedule: Dict[int, List[int]],
@@ -110,20 +152,46 @@ def simulate_schedule(
         # Build PM windows: [(start, end), ...]
         pm_windows = [(s, s + d) for s in pm_starts]
 
-        # PM costs
+        # ─── PM costs (matches solver cost structure) ───────────
         for s in pm_starts:
+            pm_end = s + d
+
+            # Base PM cost (always charged)
             pm_cost = machine.pm_cost
+
+            # Production loss + retooling depends on chain vs standalone
+            prod_loss = 0.0
+            retooling = 0.0
+
             if chain:
-                pm_cost += chain.chain_value * d + chain.retooling_cost
+                # Chain machine: check for opportunistic grouping
+                is_grouped = _detect_chain_overlap(
+                    m_idx, s, pm_end, instance, schedule
+                )
+                if is_grouped:
+                    # 50% discount on retooling + production loss
+                    prod_loss = chain.chain_value * d * 0.5
+                    retooling = chain.retooling_cost * 0.5
+                else:
+                    # Isolated: full cost
+                    prod_loss = chain.chain_value * d
+                    retooling = chain.retooling_cost
             else:
-                pm_cost += machine.production_value * d
+                # Standalone: production loss = production_value × duration
+                prod_loss = machine.production_value * d
+
             result.total_pm_cost += pm_cost
+            result.total_production_loss += prod_loss
+            result.total_retooling_cost += retooling
+
+            total_event_cost = pm_cost + prod_loss + retooling
             result.events.append(SimulationEvent(
                 time=s, machine_id=m_idx, event_type='pm',
-                cost=pm_cost, downtime=d
+                cost=total_event_cost, downtime=d,
+                chain_loss=prod_loss if chain else 0.0
             ))
 
-        # Simulate failures between PMs
+        # ─── Simulate failures between PMs ──────────────────────
         # Machine age resets to 0 after each PM
         age = 0.0
         current_time = 0.0
@@ -140,7 +208,6 @@ def simulate_schedule(
                 if absolute_fail_time < pm_start:
                     # Failure occurs before PM!
                     cm_cost = machine.cm_cost
-                    chain_loss = 0.0
                     if chain:
                         chain_loss = chain.chain_value * cm_duration
                     else:
@@ -180,11 +247,10 @@ def simulate_schedule(
 
             if absolute_fail_time < H:
                 cm_cost = machine.cm_cost
-                chain_loss = 0.0
                 if chain:
-                    chain_loss = chain.chain_value * int(d * cm_duration_multiplier)
+                    chain_loss = chain.chain_value * cm_duration
                 else:
-                    chain_loss = machine.production_value * int(d * cm_duration_multiplier)
+                    chain_loss = machine.production_value * cm_duration
 
                 result.total_cm_cost += cm_cost
                 result.total_production_loss += chain_loss
@@ -201,5 +267,6 @@ def simulate_schedule(
                 break
 
     result.total_cost = (result.total_pm_cost + result.total_cm_cost
-                         + result.total_production_loss)
+                         + result.total_production_loss
+                         + result.total_retooling_cost)
     return result

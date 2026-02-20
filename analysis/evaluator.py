@@ -35,6 +35,8 @@ class EvaluationResult:
     mean_downtime: float = 0.0
     mean_pm_cost: float = 0.0
     mean_cm_cost: float = 0.0
+    mean_prod_loss: float = 0.0
+    mean_retooling_cost: float = 0.0
     all_costs: List[float] = field(default_factory=list)
 
     def summary(self) -> str:
@@ -72,6 +74,8 @@ def evaluate_schedule(
     total_downtime = 0
     total_pm = 0.0
     total_cm = 0.0
+    total_prod_loss = 0.0
+    total_retooling = 0.0
 
     for i in range(n_sims):
         sim = simulate_schedule(instance, schedule, seed=base_seed + i)
@@ -80,6 +84,8 @@ def evaluate_schedule(
         total_downtime += sim.total_downtime
         total_pm += sim.total_pm_cost
         total_cm += sim.total_cm_cost
+        total_prod_loss += sim.total_production_loss
+        total_retooling += sim.total_retooling_cost
 
     costs.sort()
     n = len(costs)
@@ -101,6 +107,8 @@ def evaluate_schedule(
         mean_downtime=total_downtime / n,
         mean_pm_cost=total_pm / n,
         mean_cm_cost=total_cm / n,
+        mean_prod_loss=total_prod_loss / n,
+        mean_retooling_cost=total_retooling / n,
         all_costs=costs,
     )
 
