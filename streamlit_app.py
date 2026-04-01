@@ -1,7 +1,7 @@
 """
 MaintAlign — Interactive Dashboard
 =====================================
-Premium Streamlit UI for maintenance schedule optimization.
+Clean, professional Streamlit UI for maintenance schedule optimization.
 
 Launch:
     streamlit run streamlit_app.py
@@ -27,95 +27,183 @@ from utils.csv_loader import load_instance, load_machines_csv, load_chains_csv
 # ── Page config ──────────────────────────────────────────────
 st.set_page_config(
     page_title="MaintAlign — Maintenance Optimizer",
-    page_icon="🔧",
+    page_icon="M",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ── Custom CSS for premium dark look ─────────────────────────
+# ── Custom CSS — clean, minimal, professional ────────────────
 st.markdown("""
 <style>
-    /* Metric cards */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200');
+
+    /* Global font — do NOT use [class*="st-"] as it overrides Material icon fonts */
+    html, body, p, h1, h2, h3, h4, h5, h6, span, div, label, button, input, select, textarea {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    /* Restore Material Symbols font for icon elements */
+    .material-symbols-rounded {
+        font-family: 'Material Symbols Rounded' !important;
+    }
+
+    /* ═══ Metric cards — flat, clean, no truncation ═══ */
     div[data-testid="stMetric"] {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        background: rgba(255,255,255,0.03);
         border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 12px;
-        padding: 16px 20px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        border-radius: 8px;
+        padding: 12px 14px;
     }
     div[data-testid="stMetric"] label {
-        color: #8899aa !important;
-        font-size: 0.85rem !important;
+        color: #99aabb !important;
+        font-size: 0.72rem !important;
         text-transform: uppercase;
-        letter-spacing: 0.5px;
+        letter-spacing: 0.6px;
+        font-weight: 500 !important;
+        white-space: nowrap !important;
+        overflow: visible !important;
     }
     div[data-testid="stMetric"] [data-testid="stMetricValue"] {
-        font-size: 1.8rem !important;
-        font-weight: 700 !important;
-    }
-
-    /* Tab styling */
-    button[data-baseweb="tab"] {
+        font-size: 1.3rem !important;
         font-weight: 600 !important;
-        font-size: 1rem !important;
+        color: #e0e0e0 !important;
+        white-space: nowrap !important;
+        overflow: visible !important;
     }
 
-    /* Sidebar header */
+    /* ═══ Tab styling ═══ */
+    button[data-baseweb="tab"] {
+        font-weight: 500 !important;
+        font-size: 0.92rem !important;
+        letter-spacing: 0.3px;
+    }
+
+    /* ═══ Sidebar — higher contrast headers ═══ */
     section[data-testid="stSidebar"] > div:first-child {
         padding-top: 1rem;
     }
-
-    /* Expander styling */
-    details[data-testid="stExpander"] {
-        border: 1px solid rgba(255,255,255,0.06) !important;
-        border-radius: 10px !important;
-        background: rgba(255,255,255,0.02) !important;
+    section[data-testid="stSidebar"] .stMarkdown h2 {
+        font-size: 1.1rem !important;
+        color: #e0e0e0 !important;
+        font-weight: 600 !important;
+    }
+    section[data-testid="stSidebar"] .stMarkdown h3 {
+        font-size: 0.78rem !important;
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+        color: #42a5f5 !important;
+        margin-top: 0.5rem !important;
+        margin-bottom: 0.4rem !important;
+        font-weight: 600 !important;
     }
 
-    /* Table styling */
+    /* ═══ Expander — clean, hide broken icon text ═══ */
+    details[data-testid="stExpander"] {
+        border: 1px solid rgba(255,255,255,0.08) !important;
+        border-radius: 8px !important;
+        background: rgba(255,255,255,0.02) !important;
+    }
+    details[data-testid="stExpander"] summary span[class*="material"] {
+        display: none !important;
+    }
+
+    /* ═══ Table ═══ */
     .dataframe {
         font-size: 0.85rem !important;
     }
 
-    /* Plotly chart containers */
+    /* ═══ Plotly containers ═══ */
     .stPlotlyChart {
-        border-radius: 12px;
+        border-radius: 8px;
         overflow: hidden;
     }
 
-    /* Header styling */
+    /* ═══ Main header ═══ */
     .main-header {
-        background: linear-gradient(135deg, #0f3460, #16213e);
-        border-radius: 16px;
-        padding: 24px 30px;
+        border-bottom: 1px solid rgba(255,255,255,0.08);
+        padding: 16px 0 20px 0;
         margin-bottom: 1.5rem;
-        border: 1px solid rgba(255,255,255,0.06);
     }
     .main-header h1 {
         margin: 0;
-        font-size: 1.8rem;
-        background: linear-gradient(120deg, #e94560, #0f3460, #53a8b6);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #e0e0e0;
+        letter-spacing: -0.3px;
     }
     .main-header p {
-        color: #8899aa;
-        margin: 6px 0 0 0;
-        font-size: 0.95rem;
+        color: #778899;
+        margin: 4px 0 0 0;
+        font-size: 0.88rem;
+        font-weight: 400;
     }
 
-    /* Status badge */
+    /* ═══ Status badge ═══ */
     .status-badge {
         display: inline-block;
-        padding: 4px 14px;
-        border-radius: 20px;
-        font-size: 0.8rem;
+        padding: 3px 12px;
+        border-radius: 4px;
+        font-size: 0.75rem;
         font-weight: 600;
         letter-spacing: 0.5px;
+        text-transform: uppercase;
     }
-    .status-optimal { background: #1b5e20; color: #a5d6a7; }
-    .status-feasible { background: #e65100; color: #ffcc80; }
-    .status-unknown { background: #424242; color: #bdbdbd; }
+    .status-optimal { background: rgba(76,175,80,0.15); color: #81c784; border: 1px solid rgba(76,175,80,0.3); }
+    .status-feasible { background: rgba(255,167,38,0.15); color: #ffb74d; border: 1px solid rgba(255,167,38,0.3); }
+    .status-unknown { background: rgba(158,158,158,0.15); color: #bdbdbd; border: 1px solid rgba(158,158,158,0.3); }
+
+    /* ═══ Instance info bar ═══ */
+    .instance-info {
+        color: #778899;
+        font-size: 0.82rem;
+        letter-spacing: 0.3px;
+    }
+
+    /* ═══ Feature card on landing ═══ */
+    .feature-card {
+        text-align: center;
+        padding: 28px 16px;
+        background: rgba(255,255,255,0.02);
+        border-radius: 8px;
+        border: 1px solid rgba(255,255,255,0.06);
+        transition: border-color 0.2s;
+    }
+    .feature-card:hover {
+        border-color: rgba(66,165,245,0.3);
+    }
+    .feature-card .icon-circle {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        background: rgba(66,165,245,0.12);
+        border: 1px solid rgba(66,165,245,0.25);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 12px;
+    }
+    .feature-card .icon-circle svg {
+        width: 20px;
+        height: 20px;
+        stroke: #42a5f5;
+        fill: none;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+    .feature-card b {
+        font-size: 0.9rem;
+        color: #ccc;
+        display: block;
+        margin-bottom: 4px;
+    }
+    .feature-card p {
+        color: #778899;
+        font-size: 0.82rem;
+        margin-top: 4px;
+        line-height: 1.4;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -129,14 +217,14 @@ STANDALONE_COLOR = "#4CAF50"
 MAINT_COLOR = "#E53935"
 PLOTLY_BG = "rgba(0,0,0,0)"
 PLOTLY_GRID = "rgba(255,255,255,0.06)"
-PLOTLY_TEXT = "#ccc"
+PLOTLY_TEXT = "#bbb"
 
 PLOTLY_LAYOUT = dict(
     paper_bgcolor=PLOTLY_BG,
     plot_bgcolor=PLOTLY_BG,
-    font=dict(color=PLOTLY_TEXT, family="Inter, sans-serif"),
+    font=dict(color=PLOTLY_TEXT, family="Inter, -apple-system, sans-serif", size=12),
     margin=dict(l=60, r=30, t=50, b=50),
-    legend=dict(bgcolor="rgba(0,0,0,0.3)", bordercolor="rgba(255,255,255,0.1)"),
+    legend=dict(bgcolor="rgba(0,0,0,0.2)", bordercolor="rgba(255,255,255,0.08)"),
 )
 
 
@@ -214,7 +302,7 @@ def build_gantt_figure(instance: ProblemInstance, result: SolverResult,
 
     fig.update_layout(
         **PLOTLY_LAYOUT,
-        title=dict(text=title, font=dict(size=16)),
+        title=dict(text=title, font=dict(size=14)),
         barmode="overlay",
         xaxis=dict(title="Time Period", range=[0, H], gridcolor=PLOTLY_GRID,
                    zeroline=False, dtick=max(1, H // 15)),
@@ -246,7 +334,7 @@ def build_cost_comparison(instance, baselines, optimized) -> go.Figure:
     fig.update_layout(
         **PLOTLY_LAYOUT,
         barmode="stack",
-        title=dict(text="Cost Comparison: Baselines vs Optimized", font=dict(size=16)),
+        title=dict(text="Cost Comparison: Baselines vs Optimized", font=dict(size=14)),
         xaxis=dict(gridcolor=PLOTLY_GRID, zeroline=False),
         yaxis=dict(title="Total Cost ($)", gridcolor=PLOTLY_GRID, zeroline=False),
         height=420,
@@ -268,19 +356,19 @@ def build_cost_donut(optimized: SolverResult) -> go.Figure:
     fig = go.Figure(go.Pie(
         labels=labels, values=values,
         hole=0.55,
-        marker=dict(colors=colors, line=dict(width=2, color="#1a1a2e")),
+        marker=dict(colors=colors, line=dict(width=2, color="#0e1117")),
         textinfo="label+percent",
         textfont=dict(size=12),
         hovertemplate="<b>%{label}</b><br>$%{value:,.0f}<br>%{percent}<extra></extra>",
     ))
     fig.update_layout(
         **PLOTLY_LAYOUT,
-        title=dict(text="Cost Breakdown", font=dict(size=16)),
+        title=dict(text="Cost Breakdown", font=dict(size=14)),
         height=380,
         showlegend=False,
         annotations=[dict(
             text=f"${optimized.objective_value:,.0f}",
-            x=0.5, y=0.5, font=dict(size=18, color="#fff", family="Inter"),
+            x=0.5, y=0.5, font=dict(size=16, color="#ddd", family="Inter"),
             showarrow=False,
         )],
     )
@@ -302,7 +390,7 @@ def build_technician_utilization(instance, result) -> go.Figure:
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=times, y=usage, fill="tozeroy",
-        fillcolor="rgba(66,165,245,0.2)",
+        fillcolor="rgba(66,165,245,0.15)",
         line=dict(color="#42A5F5", width=2),
         name="Usage",
         hovertemplate="t=%{x}<br>Technicians: %{y}<extra></extra>",
@@ -313,7 +401,7 @@ def build_technician_utilization(instance, result) -> go.Figure:
 
     fig.update_layout(
         **PLOTLY_LAYOUT,
-        title=dict(text="Technician Utilization", font=dict(size=16)),
+        title=dict(text="Technician Utilization", font=dict(size=14)),
         xaxis=dict(title="Time Period", gridcolor=PLOTLY_GRID, zeroline=False),
         yaxis=dict(title="Technicians In Use", range=[0, K + 1],
                    gridcolor=PLOTLY_GRID, zeroline=False),
@@ -339,7 +427,7 @@ def build_monte_carlo_violin(eval_results) -> go.Figure:
 
     fig.update_layout(
         **PLOTLY_LAYOUT,
-        title=dict(text="Monte Carlo Cost Distributions", font=dict(size=16)),
+        title=dict(text="Monte Carlo Cost Distributions", font=dict(size=14)),
         xaxis=dict(gridcolor=PLOTLY_GRID, zeroline=False),
         yaxis=dict(title="Total Cost ($)", gridcolor=PLOTLY_GRID, zeroline=False),
         height=450,
@@ -385,7 +473,7 @@ def build_chain_topology(instance: ProblemInstance) -> go.Figure:
     fig.update_layout(
         **PLOTLY_LAYOUT,
         barmode="group",
-        title=dict(text="Production Chain Values", font=dict(size=16)),
+        title=dict(text="Production Chain Values", font=dict(size=14)),
         xaxis=dict(gridcolor=PLOTLY_GRID, zeroline=False),
         yaxis=dict(title="Cost ($)", gridcolor=PLOTLY_GRID, zeroline=False),
         height=350,
@@ -402,7 +490,7 @@ from utils.generator import (
     generate_industrial, generate_factory, generate_instance,
 )
 
-# Instance presets (same as --full mode in main.py)
+# Instance presets
 INSTANCE_PRESETS = {
     "Tiny (3M/1K/12T)":         generate_tiny,
     "Small (6M/2K/20T)":        generate_small,
@@ -414,12 +502,12 @@ INSTANCE_PRESETS = {
     "Factory (100M/15K/60T)":    generate_factory,
 }
 
-st.sidebar.markdown("## 🔧 MaintAlign")
+st.sidebar.markdown("## MaintAlign")
 st.sidebar.caption("Maintenance Schedule Optimizer")
 st.sidebar.divider()
 
 # Data source
-st.sidebar.markdown("### 📂 Data Source")
+st.sidebar.markdown("### ▶ Data Source")
 data_source = st.sidebar.radio(
     "Choose input:", ["Generated Instance", "CSV File"],
     horizontal=True, label_visibility="collapsed",
@@ -445,7 +533,7 @@ else:
 st.sidebar.divider()
 
 # Solver settings
-st.sidebar.markdown("### ⚙️ Solver Settings")
+st.sidebar.markdown("### ▶ Solver Settings")
 time_limit = st.sidebar.slider("Time Limit (seconds)", 5, 120, 30, step=5)
 block_weekends = st.sidebar.toggle("Block Weekends", value=False)
 repair_factor = st.sidebar.slider(
@@ -457,7 +545,7 @@ st.sidebar.divider()
 
 # Run button
 run_clicked = st.sidebar.button(
-    "🚀 Optimize Schedule", type="primary", use_container_width=True
+    "▶ Run Optimization", type="primary", use_container_width=True
 )
 
 
@@ -468,23 +556,23 @@ run_clicked = st.sidebar.button(
 # Header
 st.markdown("""
 <div class="main-header">
-    <h1>🔧 MaintAlign Dashboard</h1>
-    <p>Intelligent maintenance scheduling powered by Constraint Programming &amp; Weibull reliability models</p>
+    <h1>MaintAlign Dashboard</h1>
+    <p>Maintenance scheduling powered by Constraint Programming and Weibull reliability models</p>
 </div>
 """, unsafe_allow_html=True)
 
 
 # ── Run logic ────────────────────────────────────────────────
 if run_clicked:
-    with st.status("🔧 **Optimizing maintenance schedule...**", expanded=True) as status:
+    with st.status("**Optimizing maintenance schedule...**", expanded=True) as status:
         # Step 1: Load / generate instance
-        st.write("📦 Generating problem instance...")
+        st.write("Generating problem instance...")
         if data_source == "Generated Instance":
             gen_fn = INSTANCE_PRESETS[preset_name]
             inst = gen_fn(seed=seed)
         else:
             if uploaded_machines is None:
-                st.error("❌ Please upload a machines CSV file first.")
+                st.error("Please upload a machines CSV file first.")
                 st.stop()
             # Write uploaded bytes to temp files
             m_bytes = uploaded_machines.getvalue()
@@ -502,7 +590,7 @@ if run_clicked:
             if tmp_chains:
                 os.unlink(tmp_chains)
 
-        st.write(f"✅ Instance loaded: **{inst.num_machines}** machines, "
+        st.write(f"Instance loaded: **{inst.num_machines}** machines, "
                  f"**{inst.num_technicians}** technicians, "
                  f"**{inst.horizon}** periods, "
                  f"**{len(inst.chains)}** chains")
@@ -511,33 +599,33 @@ if run_clicked:
         if block_weekends:
             blocked = [t for t in range(inst.horizon) if t % 7 in (5, 6)]
             inst.blocked_periods = blocked
-            st.write(f"🚫 Blocked **{len(blocked)}** weekend periods")
+            st.write(f"Blocked **{len(blocked)}** weekend periods")
 
         if repair_factor < 1.0:
             for m in inst.machines:
                 m.repair_factor = repair_factor
-            st.write(f"🔧 Repair factor set to **{repair_factor:.0%}**")
+            st.write(f"Repair factor set to **{repair_factor:.0%}**")
 
         # Step 2: Compute baselines
-        st.write("📊 Computing baseline strategies...")
+        st.write("Computing baseline strategies...")
         baselines = {}
         for strat in ALL_STRATEGIES:
             baselines[strat] = fixed_interval_schedule(inst, strat)
         best_b_name = min(baselines, key=lambda k: baselines[k].objective_value)
         hint = baselines[best_b_name].machine_schedules
-        st.write(f"✅ {len(baselines)} baselines computed. "
+        st.write(f"{len(baselines)} baselines computed. "
                  f"Best: **{best_b_name}** (${baselines[best_b_name].objective_value:,.0f})")
 
         # Step 3: Solve with CP-SAT
-        st.write(f"🧠 Running CP-SAT solver (time limit: **{time_limit}s**)...")
+        st.write(f"Running CP-SAT solver (time limit: **{time_limit}s**)...")
         t0 = time.time()
         result = solve(inst, time_limit_seconds=time_limit, hint_schedule=hint)
         solve_elapsed = time.time() - t0
-        st.write(f"✅ Solver finished in **{solve_elapsed:.1f}s** — "
+        st.write(f"Solver finished in **{solve_elapsed:.1f}s** — "
                  f"Status: **{result.status}** — "
                  f"Cost: **${result.objective_value:,.0f}**")
 
-        status.update(label="✅ **Optimization complete!**", state="complete", expanded=False)
+        status.update(label="**Optimization complete**", state="complete", expanded=False)
 
     # Store results in session state
     st.session_state["solved"] = True
@@ -566,23 +654,24 @@ if st.session_state.get("solved"):
 
     # ── Top metrics row ──────────────────────────────────────
     col1, col2, col3, col4, col5 = st.columns(5)
-    col1.metric("💰 Optimized Cost", f"${result.objective_value:,.0f}")
-    col2.metric("📊 Best Baseline", f"${best_b_cost:,.0f}", help=best_b_name)
-    col3.metric("💪 Savings", f"{savings_pct:+.1f}%")
-    col4.metric("🔧 Tasks", f"{len(result.tasks)}")
-    col5.metric("⏱️ Solve Time", f"{solve_elapsed:.1f}s")
+    col1.metric("Optimized Cost", f"${result.objective_value:,.0f}")
+    col2.metric("Best Baseline", f"${best_b_cost:,.0f}", help=best_b_name)
+    col3.metric("Savings", f"{savings_pct:+.1f}%")
+    col4.metric("Tasks Scheduled", f"{len(result.tasks)}")
+    col5.metric("Solve Time", f"{solve_elapsed:.1f}s")
 
     st.markdown(
         f'<p style="text-align:center; margin-top:4px;">'
         f'<span class="status-badge {status_class}">{result.status}</span> '
-        f'&nbsp; {inst.num_machines} machines · {inst.num_technicians} technicians '
-        f'· {inst.horizon} periods · {len(inst.chains)} chains</p>',
+        f'&nbsp; <span class="instance-info">{inst.num_machines} machines · '
+        f'{inst.num_technicians} technicians · {inst.horizon} periods · '
+        f'{len(inst.chains)} chains</span></p>',
         unsafe_allow_html=True,
     )
 
     # ── Tabs ──────────────────────────────────────────────────
     tab1, tab2, tab3, tab4 = st.tabs([
-        "📊 Schedule", "💰 Cost Analysis", "🎲 Risk Analysis", "🏭 Factory"
+        "Schedule", "Cost Analysis", "Risk Analysis", "Factory"
     ])
 
     # ────────────────── TAB 1: Schedule ──────────────────────
@@ -608,8 +697,8 @@ if st.session_state.get("solved"):
                 "PM Cost ($)": m.pm_cost,
                 "CM Cost ($)": m.cm_cost,
                 "Prod Value ($)": m.production_value,
-                "β (shape)": m.weibull_beta,
-                "η (scale)": m.weibull_eta,
+                "Beta": m.weibull_beta,
+                "Eta": m.weibull_eta,
                 "Max Interval": m.max_interval,
                 "t* (optimal)": round(m.optimal_interval_analytical(), 1),
             } for m in inst.machines])
@@ -660,7 +749,7 @@ if st.session_state.get("solved"):
                 "vs Optimized": f"{sav:+.1f}%",
             })
         comp_rows.append({
-            "Strategy": "✅ Optimized",
+            "Strategy": "Optimized",
             "Total Cost ($)": f"${result.objective_value:,.0f}",
             "PM ($)": f"${result.total_pm_cost:,.0f}",
             "Failure ($)": f"${result.total_failure_cost:,.0f}",
@@ -677,12 +766,12 @@ if st.session_state.get("solved"):
         mc_col1, mc_col2 = st.columns([1, 3])
         with mc_col1:
             n_sims = st.slider("Simulations", 100, 2000, 500, step=100)
-            run_mc = st.button("🎲 Run Simulation", type="primary",
+            run_mc = st.button("Run Simulation", type="primary",
                                use_container_width=True)
         with mc_col2:
             st.info(
                 "Monte Carlo tests each schedule against random breakdowns. "
-                "VaR₉₅ = average cost in the worst 5% of scenarios (tail risk)."
+                "VaR95 = average cost in the worst 5% of scenarios (tail risk)."
             )
 
         if run_mc or st.session_state.get("mc_results"):
@@ -711,7 +800,7 @@ if st.session_state.get("solved"):
                     "Mean ($)": f"${er.mean_cost:,.0f}",
                     "Std ($)": f"${er.std_cost:,.0f}",
                     "Median ($)": f"${er.median_cost:,.0f}",
-                    "VaR₉₅ ($)": f"${er.var95:,.0f}",
+                    "VaR95 ($)": f"${er.var95:,.0f}",
                     "Avg Failures": f"{er.mean_failures:.1f}",
                     "Avg Downtime": f"{er.mean_downtime:.1f}",
                 })
@@ -729,10 +818,10 @@ if st.session_state.get("solved"):
                     text=[name],
                     textposition="top center",
                     marker=dict(
-                        size=20 if is_opt else 12,
+                        size=18 if is_opt else 10,
                         color=colors_mc[i % len(colors_mc)],
-                        symbol="star" if is_opt else "circle",
-                        line=dict(width=2, color="white") if is_opt else dict(width=0),
+                        symbol="diamond" if is_opt else "circle",
+                        line=dict(width=1.5, color="white") if is_opt else dict(width=0),
                     ),
                     showlegend=False,
                     hovertemplate=(f"<b>{name}</b><br>"
@@ -741,9 +830,9 @@ if st.session_state.get("solved"):
                 ))
             fig_scatter.update_layout(
                 **PLOTLY_LAYOUT,
-                title=dict(text="Risk vs Cost (lower-left = better)", font=dict(size=16)),
+                title=dict(text="Risk vs Cost (lower-left = better)", font=dict(size=14)),
                 xaxis_title="Mean Cost ($)",
-                yaxis_title="VaR₉₅ — Tail Risk ($)",
+                yaxis_title="VaR95 — Tail Risk ($)",
                 height=400,
             )
             st.plotly_chart(fig_scatter, use_container_width=True)
@@ -759,13 +848,13 @@ if st.session_state.get("solved"):
                     machines_in_chain = [inst.machines[mid].name for mid in c.machine_ids]
                     col = CHAIN_COLORS[c.id % len(CHAIN_COLORS)]
                     st.markdown(
-                        f'<div style="background:rgba(255,255,255,0.04); '
-                        f'border-left:4px solid {col}; padding:12px 16px; '
-                        f'border-radius:8px; margin-bottom:10px;">'
-                        f'<b style="color:{col};">{c.name}</b>'
-                        f'<br><span style="color:#8899aa;font-size:0.85rem;">'
+                        f'<div style="background:rgba(255,255,255,0.03); '
+                        f'border-left:3px solid {col}; padding:12px 16px; '
+                        f'border-radius:6px; margin-bottom:8px;">'
+                        f'<b style="color:{col}; font-size:0.9rem;">{c.name}</b>'
+                        f'<br><span style="color:#8899aa;font-size:0.82rem;">'
                         f'{" → ".join(machines_in_chain)}</span>'
-                        f'<br><span style="color:#aaa;">Value: ${c.chain_value}/period '
+                        f'<br><span style="color:#778899; font-size:0.8rem;">Value: ${c.chain_value}/period '
                         f'&nbsp; Retooling: ${c.retooling_cost}</span>'
                         f'</div>',
                         unsafe_allow_html=True,
@@ -775,11 +864,11 @@ if st.session_state.get("solved"):
                 standalone = [m for m in inst.machines if inst.is_standalone(m.id)]
                 if standalone:
                     st.markdown(
-                        f'<div style="background:rgba(255,255,255,0.04); '
-                        f'border-left:4px solid {STANDALONE_COLOR}; padding:12px 16px; '
-                        f'border-radius:8px; margin-bottom:10px;">'
-                        f'<b style="color:{STANDALONE_COLOR};">Standalone</b>'
-                        f'<br><span style="color:#8899aa;font-size:0.85rem;">'
+                        f'<div style="background:rgba(255,255,255,0.03); '
+                        f'border-left:3px solid {STANDALONE_COLOR}; padding:12px 16px; '
+                        f'border-radius:6px; margin-bottom:8px;">'
+                        f'<b style="color:{STANDALONE_COLOR}; font-size:0.9rem;">Standalone</b>'
+                        f'<br><span style="color:#8899aa;font-size:0.82rem;">'
                         f'{", ".join(m.name for m in standalone)}</span>'
                         f'</div>',
                         unsafe_allow_html=True,
@@ -821,16 +910,18 @@ else:
     left, center, right = st.columns([1, 2, 1])
     with center:
         st.markdown("""
-        <div style="text-align:center; padding: 60px 20px;">
-            <h2 style="color:#8899aa;">Welcome to MaintAlign</h2>
-            <p style="color:#667788; font-size:1.1rem; max-width:500px; margin:0 auto;">
-                Upload your factory data or use the built-in example,
-                configure your solver, and click <b>🚀 Optimize Schedule</b>
-                to find the optimal maintenance plan.
+        <div style="text-align:center; padding: 50px 20px;">
+            <h2 style="color:#c0c8d0; font-weight:600; font-size:1.4rem;">
+                Welcome to MaintAlign
+            </h2>
+            <p style="color:#667788; font-size:0.95rem; max-width:480px; margin:8px auto 0;">
+                Upload your factory data or select a built-in instance,
+                configure the solver, and click <b>Run Optimization</b>
+                to generate an optimal maintenance schedule.
             </p>
             <br>
-            <p style="color:#556677;">
-                ⬅️ Use the sidebar to get started
+            <p style="color:#556677; font-size:0.85rem;">
+                Use the sidebar to get started
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -839,34 +930,32 @@ else:
         f1, f2, f3 = st.columns(3)
         with f1:
             st.markdown("""
-            <div style="text-align:center; padding:20px; background:rgba(255,255,255,0.03);
-                        border-radius:12px; border:1px solid rgba(255,255,255,0.06);">
-                <div style="font-size:2rem;">📊</div>
+            <div class="feature-card">
+                <div class="icon-circle">
+                    <svg viewBox="0 0 24 24"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
+                </div>
                 <b>Smart Scheduling</b>
-                <p style="color:#667788; font-size:0.85rem;">
-                    CP-SAT solver finds optimal PM timing
-                </p>
+                <p>CP-SAT constraint solver finds optimal PM timing under resource limits</p>
             </div>
             """, unsafe_allow_html=True)
         with f2:
             st.markdown("""
-            <div style="text-align:center; padding:20px; background:rgba(255,255,255,0.03);
-                        border-radius:12px; border:1px solid rgba(255,255,255,0.06);">
-                <div style="font-size:2rem;">🎲</div>
+            <div class="feature-card">
+                <div class="icon-circle">
+                    <svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                </div>
                 <b>Risk Analysis</b>
-                <p style="color:#667788; font-size:0.85rem;">
-                    Monte Carlo simulation with Weibull failure
-                </p>
+                <p>Monte Carlo simulation with Weibull failure modeling</p>
             </div>
             """, unsafe_allow_html=True)
         with f3:
             st.markdown("""
-            <div style="text-align:center; padding:20px; background:rgba(255,255,255,0.03);
-                        border-radius:12px; border:1px solid rgba(255,255,255,0.06);">
-                <div style="font-size:2rem;">🏭</div>
+            <div class="feature-card">
+                <div class="icon-circle">
+                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </div>
                 <b>Chain-Aware</b>
-                <p style="color:#667788; font-size:0.85rem;">
-                    Production chain dependencies & grouping
-                </p>
+                <p>Production chain dependencies and opportunistic grouping</p>
             </div>
             """, unsafe_allow_html=True)
+

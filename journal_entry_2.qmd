@@ -1,0 +1,106 @@
+---
+title: "Journal Entry 2: Prototype Installation and Use"
+date: "2026-02-01"
+categories: [prototype, documentation]
+description: "How do you install and use your research prototype?"
+---
+
+![Research prototype](../thumbnail.jpg)
+
+## How do you install and use your research prototype?
+
+In this journal entry, provide clear documentation for your research prototype.
+Your goal is to make it easy for someone else to install and use your work.
+
+```text
+MaintAlign: Resource-Constrained Preventive Maintenance Scheduling with Production Chains
+```
+
+### Installation Instructions
+
+- What are the system requirements?
+  - macOS, Linux, or Windows
+  - Python 3.8+
+
+- What dependencies need to be installed?
+  - `ortools>=9.8` — Google CP-SAT constraint programming solver
+  - `matplotlib>=3.7` — CLI chart generation
+  - `numpy>=1.24` — numerical computation
+  - `streamlit` — interactive web dashboard
+  - `plotly` — interactive Gantt charts and cost plots
+  - `pandas` — data tables
+
+- What are the step-by-step installation instructions?
+  1. Clone the repository and open a terminal in the project folder.
+  2. Create and activate a virtual environment:
+     ```bash
+     python3 -m venv .venv
+     source .venv/bin/activate
+     ```
+  3. Install dependencies:
+     ```bash
+     pip install -r requirements.txt
+     pip install streamlit plotly pandas
+     ```
+
+- How can someone verify that the installation was successful?
+  - Run the demo:
+    ```bash
+    python main.py
+    ```
+  - If successful, the terminal will print optimization results and charts will appear in `results/demo/`.
+
+### Usage Instructions
+
+- How do you run your prototype?
+  - **Dashboard (recommended):**
+    ```bash
+    streamlit run streamlit_app.py
+    ```
+  - **Command line:**
+    ```bash
+    python main.py              # demo (tiny + small + medium)
+    python main.py --full       # full suite (5 sizes × 3 seeds)
+    python main.py --sensitivity # sensitivity analysis
+    ```
+
+- What are the main features or capabilities?
+  - Interactive Gantt charts showing optimized maintenance schedules
+  - Cost breakdown comparison (PM, failure, production loss, retooling) against baseline strategies
+  - Monte Carlo risk simulation using Weibull failure models
+  - Multiple instance presets from Tiny (3 machines) to Factory (100 machines)
+
+- What are some example use cases?
+  - A factory with limited technicians and interconnected production chains needs to decide which machines to maintain, when, and how often. The user uploads machine data via CSV or selects a preset, clicks "Run Optimization," and gets an optimal schedule that minimizes total expected cost.
+
+- Are there any configuration options or settings?
+  - **Data Source** — generated instance presets or custom CSV upload
+  - **Time Limit** — solver runtime (5–120 seconds)
+  - **Block Weekends** — exclude weekends from maintenance windows
+  - **Repair Factor** — simulate imperfect repairs (e.g., 0.8 = restored to 80% of new)
+
+### Technical Details
+
+- What technologies or frameworks did you use?
+  - Python, Google OR-Tools (CP-SAT), Streamlit, Plotly, NumPy, Matplotlib
+
+- Why did you choose these particular tools?
+  - **Google OR-Tools** handles complex scheduling constraints (technician limits, production chains, optional tasks) efficiently.
+  - **Streamlit** allows building a professional interactive dashboard in pure Python with no frontend code.
+  - **Plotly** provides interactive tooltips and zoom on dense Gantt charts, which is essential for schedule analysis.
+
+- What are the key components or modules?
+  - `core/` — data models (`instance.py`), CP-SAT solver (`solver.py`), baseline strategies (`baseline.py`)
+  - `analysis/` — Monte Carlo simulation (`simulator.py`), schedule evaluation (`evaluator.py`)
+  - `utils/` — instance generation (`generator.py`), visualization (`visualizer.py`)
+  - `streamlit_app.py` — the interactive dashboard tying everything together
+
+- How do the different parts work together?
+  1. A `ProblemInstance` is built from `utils/generator.py` or CSV files.
+  2. Weibull failure risks are computed for each machine.
+  3. `core/solver.py` finds the optimal maintenance schedule under technician and chain constraints.
+  4. `analysis/evaluator.py` compares the optimized schedule against baseline strategies.
+  5. The Streamlit dashboard renders interactive Gantt charts, cost breakdowns, and Monte Carlo risk distributions via Plotly.
+
+Remember to include code snippets, screenshots, or diagrams where appropriate to
+make your instructions clear and easy to follow.
