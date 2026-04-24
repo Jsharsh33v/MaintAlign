@@ -1,0 +1,5 @@
+# Columns: chain_name, machine_names (semicolon-separated), chain_value, retooling_cost
+# Machine names must match names from the machines CSV.
+chain_name,machine_names,chain_value,retooling_cost
+Body_Line,Welder;Press_Hyd,700,250
+Finish_Line,Grinder;Inspector,300,120

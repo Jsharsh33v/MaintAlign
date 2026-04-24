@@ -1,0 +1,11 @@
+#CONFIG, example_shop, 2, 30
+# Columns: name, duration, pm_cost, cm_cost, prod_value, beta, eta, max_interval, min_gap
+# Lines starting with # are comments.
+# The #CONFIG line sets instance name, num_technicians, and horizon.
+name,duration,pm_cost,cm_cost,prod_value,beta,eta,max_interval,min_gap
+CNC_Lathe,2,400,3200,300,2.5,14,14,4
+Drill_Press,1,150,900,120,2.0,10,10,3
+Welder,2,350,2800,250,2.2,12,12,3
+Press_Hyd,2,450,3600,280,2.3,13,13,3
+Grinder,1,200,1400,140,2.1,11,11,3
+Inspector,1,100,600,80,1.8,15,15,4
