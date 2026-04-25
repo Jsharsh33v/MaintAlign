@@ -110,7 +110,6 @@ def fixed_interval_schedule(
         chain = instance.get_chain_for_machine(m_idx)
 
         for ds in desired[m_idx]:
-            scheduled = False
             for offset in range(machine.max_interval):
                 cand = ds + offset
                 if cand + machine.maintenance_duration > H:
