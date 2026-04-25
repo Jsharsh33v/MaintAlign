@@ -28,10 +28,10 @@ SOLVER APPROACH:
 import logging
 import time
 from dataclasses import dataclass, field
-from typing import List, Dict, Optional
+
 from ortools.sat.python import cp_model
 
-from core.instance import ProblemInstance, MachineSpec
+from core.instance import MachineSpec, ProblemInstance
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ class MaintenanceTask:
     cost_pm: float
     cost_prod_loss: float
     cost_retooling: float
-    chain_id: Optional[int] = None
+    chain_id: int | None = None
 
 
 @dataclass
@@ -57,13 +57,13 @@ class SolverResult:
     status: str
     objective_value: float
     solve_time_seconds: float
-    tasks: List[MaintenanceTask]
+    tasks: list[MaintenanceTask]
     total_pm_cost: float
     total_production_loss: float
     total_retooling_cost: float
     total_failure_cost: float
-    machine_schedules: Dict[int, List[int]]
-    chain_costs: Dict[int, Dict[str, float]] = field(default_factory=dict)
+    machine_schedules: dict[int, list[int]]
+    chain_costs: dict[int, dict[str, float]] = field(default_factory=dict)
 
     def summary(self) -> str:
         lines = [
@@ -78,7 +78,7 @@ class SolverResult:
             f" Solve Time: {self.solve_time_seconds:.3f}s",
             f" Tasks Scheduled: {len(self.tasks)}",
             f"{'─'*55}",
-            f" Schedule:",
+            " Schedule:",
         ]
         for mid, starts in sorted(self.machine_schedules.items()):
             tag = f" (chain {self.tasks[0].chain_id})" if starts and any(
@@ -88,7 +88,7 @@ class SolverResult:
 
         if self.chain_costs:
             lines.append(f"{'─'*55}")
-            lines.append(f" Chain Cost Breakdown:")
+            lines.append(" Chain Cost Breakdown:")
             for cid, cc in sorted(self.chain_costs.items()):
                 lines.append(
                     f"   Chain {cid}: prod_loss=${cc['prod_loss']:,.0f}  "
@@ -98,7 +98,7 @@ class SolverResult:
         return "\n".join(lines)
 
 
-def _precompute_failure_table(machine: MachineSpec, horizon: int) -> List[int]:
+def _precompute_failure_table(machine: MachineSpec, horizon: int) -> list[int]:
     """Table: gap_length → integer-scaled expected failure cost."""
     return [
         int(machine.expected_failure_cost(g) * COST_SCALE)
@@ -183,12 +183,12 @@ def _compute_start_bounds(machine: MachineSpec, horizon: int,
 
 
 def _add_solver_hints(model, instance, present, start_var, max_tasks,
-                      hint_schedule: Optional[Dict[int, List[int]]] = None):
+                      hint_schedule: dict[int, list[int]] | None = None):
     """Add solver hints from a baseline solution to warm-start the search."""
     if hint_schedule is None:
         return
 
-    for m_idx, machine in enumerate(instance.machines):
+    for m_idx, _machine in enumerate(instance.machines):
         J = max_tasks[m_idx]
         hint_starts = sorted(hint_schedule.get(m_idx, []))
 
@@ -210,7 +210,7 @@ def _add_symmetry_breaking(model, instance, present, start_var, max_tasks):
         groups.setdefault(key, []).append(m_idx)
 
     count = 0
-    for key, mids in groups.items():
+    for _key, mids in groups.items():
         if len(mids) < 2:
             continue
         for i in range(len(mids) - 1):
@@ -244,7 +244,6 @@ def _add_chain_grouping_buckets(model, instance, present, start_var,
     (ov=true → overlap conditions hold) — no need to constrain
     when ov=false.
     """
-    H = instance.horizon
 
     for chain in instance.chains:
         mids = chain.machine_ids
@@ -260,7 +259,7 @@ def _add_chain_grouping_buckets(model, instance, present, start_var,
         if not chain_tasks:
             continue
 
-        for i, (m1, j1) in enumerate(chain_tasks):
+        for _i, (m1, j1) in enumerate(chain_tasks):
             d1 = instance.machines[m1].maintenance_duration
             full_cost = retool_scaled + prod_loss_scaled * d1
             grouped_cost = retool_scaled // 2 + prod_loss_scaled * d1 // 2
@@ -372,7 +371,7 @@ def solve(
     time_limit_seconds: int = 60,
     num_workers: int = 12,
     log_search: bool = False,
-    hint_schedule: Optional[Dict[int, List[int]]] = None,
+    hint_schedule: dict[int, list[int]] | None = None,
     use_symmetry_breaking: bool = True,
 ) -> SolverResult:
     """
@@ -740,11 +739,11 @@ def solve(
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO,
                         format="%(name)s | %(message)s")
-    from utils.generator import generate_tiny, generate_small, generate_medium_easy
+    from utils.generator import generate_medium_easy, generate_small, generate_tiny
 
     print("MaintAlign CP-SAT Solver v4 (High-Performance)\n")
 
-    for gen, label in [
+    for gen, _label in [
         (generate_tiny, "TINY"),
         (generate_small, "SMALL"),
         (generate_medium_easy, "MEDIUM-EASY"),

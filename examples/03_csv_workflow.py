@@ -11,16 +11,15 @@ Run from the project root:
     python examples/03_csv_workflow.py
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from utils.csv_loader import load_instance
+from core.baseline import ALL_STRATEGIES, fixed_interval_schedule
 from core.solver import solve
-from core.baseline import fixed_interval_schedule, ALL_STRATEGIES
-from core.validators import validate_instance, MaintAlignError
-
+from core.validators import MaintAlignError, validate_instance
+from utils.csv_loader import load_instance
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MACHINES_CSV = os.path.join(HERE, "sample_data", "example_machines.csv")

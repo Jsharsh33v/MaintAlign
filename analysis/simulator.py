@@ -24,9 +24,8 @@ import logging
 import math
 import random
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, Optional
 
-from core.instance import ProblemInstance, MachineSpec
+from core.instance import ProblemInstance
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +51,7 @@ class SimulationResult:
     total_downtime: int = 0
     total_cost: float = 0.0
     num_failures: int = 0
-    events: List[SimulationEvent] = field(default_factory=list)
+    events: list[SimulationEvent] = field(default_factory=list)
 
 
 def _sample_weibull_failure(beta: float, eta: float, age: float) -> float:
@@ -95,7 +94,7 @@ def _detect_chain_overlap(
     pm_start: int,
     pm_end: int,
     instance: ProblemInstance,
-    schedule: Dict[int, List[int]],
+    schedule: dict[int, list[int]],
 ) -> bool:
     """
     Check if a PM event on machine m_idx overlaps with any chain-mate PM.
@@ -121,8 +120,8 @@ def _detect_chain_overlap(
 
 def simulate_schedule(
     instance: ProblemInstance,
-    schedule: Dict[int, List[int]],
-    seed: Optional[int] = None,
+    schedule: dict[int, list[int]],
+    seed: int | None = None,
     cm_duration_multiplier: float = 2.0,
 ) -> SimulationResult:
     """

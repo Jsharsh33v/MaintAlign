@@ -12,10 +12,10 @@ Produces:
 
 import csv
 import os
-import sys
 from collections import defaultdict
 
 import matplotlib
+
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
@@ -42,7 +42,7 @@ def load_csv(filename):
     if not os.path.exists(path):
         print(f"  WARNING: {path} not found, skipping.")
         return []
-    with open(path, 'r') as f:
+    with open(path) as f:
         reader = csv.DictReader(f)
         return list(reader)
 
@@ -69,8 +69,8 @@ def plot_scalability():
                 capsize=5, capthick=1.5, linewidth=2, markersize=8,
                 label='Mean ± Std Dev')
     ax.fill_between(sizes,
-                    [m - s for m, s in zip(means, stds)],
-                    [m + s for m, s in zip(means, stds)],
+                    [m - s for m, s in zip(means, stds, strict=False)],
+                    [m + s for m, s in zip(means, stds, strict=False)],
                     alpha=0.15, color='#1976D2')
 
     ax.set_xlabel('Number of Machines', fontsize=12)
@@ -101,7 +101,7 @@ def plot_baseline_comparison():
         if cost < 1e12:  # skip infeasible
             costs[label][strat].append(cost)
 
-    labels = [l for l in ["small", "med_easy", "med_hard", "large"] if l in costs]
+    labels = [lbl for lbl in ["small", "med_easy", "med_hard", "large"] if lbl in costs]
     strategies = ["max_interval", "half_max", "analytical", "condition_based", "optimized"]
     strat_labels = ["Max Interval", "Half Max", "Analytical", "Condition-Based", "CP-SAT Optimized"]
     colors = ['#90CAF9', '#A5D6A7', '#FFE082', '#CE93D8', '#E53935']
@@ -112,14 +112,14 @@ def plot_baseline_comparison():
 
     fig, ax = plt.subplots(figsize=(12, 6))
 
-    for i, (strat, slabel, color) in enumerate(zip(strategies, strat_labels, colors)):
+    for i, (strat, slabel, color) in enumerate(zip(strategies, strat_labels, colors, strict=False)):
         vals = []
         for label in labels:
             if strat in costs[label] and costs[label][strat]:
                 vals.append(np.mean(costs[label][strat]))
             else:
                 vals.append(0)
-        bars = ax.bar(x + offsets[i] * width, vals, width, label=slabel,
+        ax.bar(x + offsets[i] * width, vals, width, label=slabel,
                       color=color, edgecolor='white', linewidth=0.5)
 
     ax.set_xlabel('Problem Size', fontsize=12)
@@ -129,7 +129,7 @@ def plot_baseline_comparison():
     ax.set_xticks(x)
     display_labels = {"small": "Small\n(6M/2K)", "med_easy": "Medium Easy\n(10M/4K)",
                       "med_hard": "Medium Hard\n(10M/2K)", "large": "Large\n(20M/5K)"}
-    ax.set_xticklabels([display_labels.get(l, l) for l in labels])
+    ax.set_xticklabels([display_labels.get(lbl, lbl) for lbl in labels])
     ax.legend(fontsize=9, loc='upper left')
 
     plt.tight_layout()
@@ -155,7 +155,7 @@ def plot_savings_summary():
             runs[key][strat].append(cost)
 
     savings_by_label = defaultdict(list)
-    for (label, seed), strats in runs.items():
+    for (label, _seed), strats in runs.items():
         baseline_costs = [np.mean(strats[s]) for s in strats if s != "optimized" and strats[s]]
         opt_costs = strats.get("optimized", [])
         if baseline_costs and opt_costs:
@@ -164,18 +164,18 @@ def plot_savings_summary():
             if best_base > 0:
                 savings_by_label[label].append((1 - opt / best_base) * 100)
 
-    labels = [l for l in ["small", "med_easy", "med_hard", "large"] if l in savings_by_label]
-    means = [np.mean(savings_by_label[l]) for l in labels]
-    stds = [np.std(savings_by_label[l]) for l in labels]
+    labels = [lbl for lbl in ["small", "med_easy", "med_hard", "large"] if lbl in savings_by_label]
+    means = [np.mean(savings_by_label[lbl]) for lbl in labels]
+    stds = [np.std(savings_by_label[lbl]) for lbl in labels]
 
     fig, ax = plt.subplots(figsize=(8, 5))
     display = {"small": "Small", "med_easy": "Med Easy", "med_hard": "Med Hard", "large": "Large"}
     x = np.arange(len(labels))
-    bars = ax.bar(x, means, 0.5, yerr=stds, capsize=5,
+    ax.bar(x, means, 0.5, yerr=stds, capsize=5,
                   color=['#42A5F5', '#66BB6A', '#FFA726', '#EF5350'],
                   edgecolor='white', linewidth=0.5)
 
-    for i, (m, s) in enumerate(zip(means, stds)):
+    for i, (m, s) in enumerate(zip(means, stds, strict=False)):
         ax.text(i, m + s + 0.5, f'{m:.1f}%', ha='center', va='bottom',
                 fontweight='bold', fontsize=11)
 
@@ -184,7 +184,7 @@ def plot_savings_summary():
     ax.set_title('CP-SAT Savings vs Best Baseline Strategy',
                  fontsize=14, fontweight='bold')
     ax.set_xticks(x)
-    ax.set_xticklabels([display.get(l, l) for l in labels])
+    ax.set_xticklabels([display.get(lbl, lbl) for lbl in labels])
     ax.axhline(0, color='gray', linewidth=0.5)
 
     plt.tight_layout()
@@ -212,7 +212,7 @@ def plot_montecarlo_summary():
         var95s[label][strat].append(float(row["var95"]))
         failures[label][strat].append(float(row["mean_failures"]))
 
-    labels = [l for l in ["small", "med_easy", "med_hard"] if l in mean_costs]
+    labels = [lbl for lbl in ["small", "med_easy", "med_hard"] if lbl in mean_costs]
     strategies = ["max_interval", "half_max", "analytical", "condition_based", "optimized"]
     strat_display = ["Max Int.", "Half Max", "Analytical", "Cond-Based", "Optimized"]
     colors = ['#90CAF9', '#A5D6A7', '#FFE082', '#CE93D8', '#E53935']
@@ -221,7 +221,7 @@ def plot_montecarlo_summary():
     if len(labels) == 1:
         axes = [axes]
 
-    for ax, label in zip(axes, labels):
+    for ax, label in zip(axes, labels, strict=False):
         x = np.arange(len(strategies))
         means = [np.mean(mean_costs[label].get(s, [0])) for s in strategies]
         v95 = [np.mean(var95s[label].get(s, [0])) for s in strategies]
@@ -254,7 +254,7 @@ def main():
     os.makedirs(FIGURES_DIR, exist_ok=True)
 
     print(f"{'='*50}")
-    print(f" Generating Chapter 4 Figures")
+    print(" Generating Chapter 4 Figures")
     print(f"{'='*50}")
 
     plot_scalability()

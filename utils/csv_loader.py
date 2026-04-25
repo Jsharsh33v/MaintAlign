@@ -22,9 +22,8 @@ import csv
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
 
-from core.instance import ProblemInstance, MachineSpec, ProductionChain
+from core.instance import MachineSpec, ProblemInstance, ProductionChain
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +40,7 @@ def load_machines_csv(filepath: str) -> tuple:
     num_technicians = 2
     horizon = 30
 
-    with open(filepath, 'r', newline='') as f:
+    with open(filepath, newline='') as f:
         reader = csv.reader(f)
 
         for row in reader:
@@ -106,7 +105,7 @@ def load_chains_csv(filepath: str, machines: list) -> list:
     name_to_id = {m.name: m.id for m in machines}
     chains = []
 
-    with open(filepath, 'r', newline='') as f:
+    with open(filepath, newline='') as f:
         reader = csv.reader(f)
 
         for row in reader:
@@ -149,7 +148,7 @@ def load_chains_csv(filepath: str, machines: list) -> list:
 
 
 def load_instance(machines_csv: str,
-                  chains_csv: Optional[str] = None) -> ProblemInstance:
+                  chains_csv: str | None = None) -> ProblemInstance:
     """
     Load a complete ProblemInstance from CSV file(s).
 

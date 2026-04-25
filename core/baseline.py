@@ -14,9 +14,9 @@ Chain machines use chain production values for cost calculation.
 """
 
 import logging
-from typing import Dict, List
+
 from core.instance import ProblemInstance
-from core.solver import SolverResult, MaintenanceTask
+from core.solver import MaintenanceTask, SolverResult
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ def fixed_interval_schedule(
     K = instance.num_technicians
 
     # Step 1: compute desired PM times per machine
-    desired: Dict[int, List[int]] = {}
+    desired: dict[int, list[int]] = {}
     for m_idx, machine in enumerate(instance.machines):
         if strategy == "max_interval":
             interval = machine.max_interval
@@ -94,7 +94,7 @@ def fixed_interval_schedule(
 
     # Step 2: greedy first-fit for technician conflicts
     tech_usage = [0] * H
-    actual: Dict[int, List[int]] = {m: [] for m in range(instance.num_machines)}
+    actual: dict[int, list[int]] = {m: [] for m in range(instance.num_machines)}
     tasks = []
 
     # Priority: chain machines first (higher cost of failure), then by CM cost
@@ -141,7 +141,6 @@ def fixed_interval_schedule(
                         cost_retooling=ret_c,
                         chain_id=chain.id if chain else None,
                     ))
-                    scheduled = True
                     break
 
     # Step 3: compute costs
@@ -190,8 +189,8 @@ def fixed_interval_schedule(
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO,
                         format="%(name)s | %(message)s")
-    from utils.generator import generate_small, generate_medium_easy
     from core.solver import solve
+    from utils.generator import generate_medium_easy, generate_small
 
     for gen, label in [(generate_small, "SMALL"), (generate_medium_easy, "MED")]:
         inst = gen()

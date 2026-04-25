@@ -12,15 +12,15 @@ Run from the project root:
     python examples/02_custom_instance.py
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from core.instance import ProblemInstance, MachineSpec, ProductionChain
-from core.solver import solve
 from core.baseline import fixed_interval_schedule
-from core.validators import validate_instance, InvalidInstanceError
+from core.instance import MachineSpec, ProblemInstance, ProductionChain
+from core.solver import solve
+from core.validators import InvalidInstanceError, validate_instance
 
 
 def build_instance() -> ProblemInstance:

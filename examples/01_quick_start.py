@@ -8,14 +8,14 @@ Run from the project root:
     python examples/01_quick_start.py
 """
 
-import sys
 import os
+import sys
 
 # Make sure we can import from the project root
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from utils.generator import generate_tiny
 from core.solver import solve
+from utils.generator import generate_tiny
 
 
 def main() -> None:

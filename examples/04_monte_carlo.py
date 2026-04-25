@@ -13,15 +13,15 @@ Run from the project root:
     python examples/04_monte_carlo.py
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from utils.generator import generate_small
-from core.solver import solve
-from core.baseline import fixed_interval_schedule, ALL_STRATEGIES
 from analysis.evaluator import compare_schedules
+from core.baseline import ALL_STRATEGIES, fixed_interval_schedule
+from core.solver import solve
+from utils.generator import generate_small
 
 
 def main() -> None:

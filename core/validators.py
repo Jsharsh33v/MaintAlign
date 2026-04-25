@@ -20,7 +20,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 # ── Custom exceptions ────────────────────────────────────────
 
 class MaintAlignError(Exception):
@@ -49,10 +48,10 @@ def _require_positive_int(value: Any, field_name: str) -> int:
     """Cast to int and require > 0."""
     try:
         v = int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as err:
         raise InvalidMachineSpecError(
             f"{field_name}: expected integer, got {value!r}"
-        )
+        ) from err
     if v <= 0:
         raise InvalidMachineSpecError(
             f"{field_name}: must be > 0, got {v}"
@@ -64,10 +63,10 @@ def _require_nonneg_int(value: Any, field_name: str) -> int:
     """Cast to int and require >= 0."""
     try:
         v = int(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as err:
         raise InvalidMachineSpecError(
             f"{field_name}: expected integer, got {value!r}"
-        )
+        ) from err
     if v < 0:
         raise InvalidMachineSpecError(
             f"{field_name}: must be >= 0, got {v}"
@@ -79,10 +78,10 @@ def _require_positive_float(value: Any, field_name: str) -> float:
     """Cast to float and require > 0."""
     try:
         v = float(value)
-    except (TypeError, ValueError):
+    except (TypeError, ValueError) as err:
         raise InvalidMachineSpecError(
             f"{field_name}: expected number, got {value!r}"
-        )
+        ) from err
     if v <= 0:
         raise InvalidMachineSpecError(
             f"{field_name}: must be > 0, got {v}"
@@ -256,11 +255,11 @@ def validate_csv_row(row: list, row_num: int) -> None:
         val = row[idx].strip()
         try:
             caster(val)
-        except ValueError:
+        except ValueError as err:
             raise InvalidCSVRowError(
                 f"Row {row_num} (machine='{row[0].strip()}'): column "
                 f"'{name}' has invalid {caster.__name__} value {val!r}"
-            )
+            ) from err
 
 
 # ── Solver parameter validation ──────────────────────────────

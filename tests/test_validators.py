@@ -2,16 +2,16 @@
 
 import pytest
 
-from core.instance import MachineSpec, ProductionChain, ProblemInstance
+from core.instance import MachineSpec, ProblemInstance, ProductionChain
 from core.validators import (
-    validate_machine_spec,
-    validate_instance,
-    validate_csv_row,
-    validate_solver_params,
-    InvalidMachineSpecError,
-    InvalidInstanceError,
     InvalidCSVRowError,
+    InvalidInstanceError,
+    InvalidMachineSpecError,
     InvalidSolverParamsError,
+    validate_csv_row,
+    validate_instance,
+    validate_machine_spec,
+    validate_solver_params,
 )
 
 

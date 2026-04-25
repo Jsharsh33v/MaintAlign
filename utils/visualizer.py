@@ -6,13 +6,13 @@ and per-chain cost analysis.
 """
 
 import logging
+
 import matplotlib
+
 matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
 import numpy as np
-from core.instance import ProblemInstance
-from core.solver import SolverResult
 
 logger = logging.getLogger(__name__)
 
@@ -145,7 +145,7 @@ def plot_cost_comparison(instance, baseline_results, optimized,
     fig, ax = plt.subplots(figsize=(10, 6))
     bottom = np.zeros(len(labels))
 
-    for vals, col, name in zip(data, colors, cats):
+    for vals, col, name in zip(data, colors, cats, strict=False):
         ax.bar(x, vals, 0.6, bottom=bottom, label=name, color=col, alpha=0.85)
         bottom += np.array(vals)
 

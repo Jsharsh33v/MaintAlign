@@ -12,18 +12,16 @@ Strategy:
 """
 
 import logging
-import math
-from typing import Dict, List, Tuple, Optional
 
-from core.instance import ProblemInstance, MachineSpec, ProductionChain
-from core.solver import solve, SolverResult, MaintenanceTask
+from core.instance import MachineSpec, ProblemInstance, ProductionChain
+from core.solver import MaintenanceTask, SolverResult, solve
 
 logger = logging.getLogger(__name__)
 
 MAX_SUBPROBLEM_SIZE = 15  # Max machines per subproblem
 
 
-def _partition_machines(instance: ProblemInstance) -> List[List[int]]:
+def _partition_machines(instance: ProblemInstance) -> list[list[int]]:
     """
     Partition machines into groups for decomposition.
 
@@ -48,7 +46,7 @@ def _partition_machines(instance: ProblemInstance) -> List[List[int]]:
 
 def _build_subproblem(
     instance: ProblemInstance,
-    machine_ids: List[int],
+    machine_ids: list[int],
     sub_id: int,
 ) -> ProblemInstance:
     """
@@ -110,19 +108,18 @@ def _build_subproblem(
 
 
 def _merge_schedules(
-    sub_results: List[Tuple[List[int], SolverResult]],
+    sub_results: list[tuple[list[int], SolverResult]],
     instance: ProblemInstance,
 ) -> SolverResult:
     """
     Merge subproblem solutions into a single schedule.
     If there are technician conflicts, shift conflicting tasks.
     """
-    H = instance.horizon
     K = instance.num_technicians
 
     # Merge all schedules, mapping back to original machine IDs
-    merged_schedule: Dict[int, List[int]] = {}
-    merged_tasks: List[MaintenanceTask] = []
+    merged_schedule: dict[int, list[int]] = {}
+    merged_tasks: list[MaintenanceTask] = []
     total_pm_cost = 0.0
     total_failure_cost = 0.0
     total_prod_loss = 0.0
@@ -179,10 +176,10 @@ def _merge_schedules(
 
 
 def _find_tech_violations(
-    schedule: Dict[int, List[int]],
+    schedule: dict[int, list[int]],
     instance: ProblemInstance,
     K: int,
-) -> List[Tuple[int, List[Tuple[int, int]]]]:
+) -> list[tuple[int, list[tuple[int, int]]]]:
     """Find time slots where technician count exceeds K."""
     H = instance.horizon
     violations = []
@@ -201,10 +198,10 @@ def _find_tech_violations(
 
 
 def _shift_cheapest_task(
-    schedule: Dict[int, List[int]],
+    schedule: dict[int, list[int]],
     instance: ProblemInstance,
     conflict_time: int,
-    tasks_at_t: List[Tuple[int, int]],
+    tasks_at_t: list[tuple[int, int]],
 ):
     """Shift the cheapest task by 1 period to resolve a conflict."""
     # Find cheapest task to shift

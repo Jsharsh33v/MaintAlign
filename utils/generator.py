@@ -16,10 +16,11 @@ DIFFICULTY CONTROLS:
   Chain:     Chain fraction (more chains = harder economic trade-offs)
 """
 
-import random
-import os
 import logging
-from core.instance import MachineSpec, ProductionChain, ProblemInstance
+import os
+import random
+
+from core.instance import MachineSpec, ProblemInstance, ProductionChain
 
 logger = logging.getLogger(__name__)
 

@@ -22,10 +22,10 @@ import sys
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
-from utils.generator import generate_instance
-from core.solver import solve
-from core.baseline import fixed_interval_schedule, ALL_STRATEGIES
 from analysis.evaluator import compare_schedules
+from core.baseline import ALL_STRATEGIES, fixed_interval_schedule
+from core.solver import solve
+from utils.generator import generate_instance
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "results")
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "montecarlo_results.csv")

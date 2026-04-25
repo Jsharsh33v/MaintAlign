@@ -2,10 +2,10 @@
 
 import os
 import tempfile
+
 import pytest
 
 from utils.csv_loader import load_instance, load_machines_csv
-
 
 GOOD_MACHINES_CSV = """#CONFIG, test_shop, 2, 30
 name,duration,pm_cost,cm_cost,prod_value,beta,eta,max_interval,min_gap

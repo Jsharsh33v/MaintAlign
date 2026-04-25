@@ -8,25 +8,34 @@ Launch:
 """
 
 import os
-import sys
-import time
 import tempfile
-import streamlit as st
-import plotly.graph_objects as go
-import plotly.express as px
+import time
+
 import pandas as pd
-import numpy as np
+import plotly.graph_objects as go
+import streamlit as st
+
+from analysis.evaluator import compare_schedules
+from core.baseline import ALL_STRATEGIES, fixed_interval_schedule
 
 # ── Project imports ──────────────────────────────────────────
-from core.instance import ProblemInstance, MachineSpec, ProductionChain
-from core.solver import solve, SolverResult
-from core.baseline import fixed_interval_schedule, ALL_STRATEGIES
-from analysis.evaluator import evaluate_schedule, compare_schedules
-from utils.csv_loader import load_instance, load_machines_csv, load_chains_csv
+from core.instance import ProblemInstance
+from core.solver import SolverResult, solve
 from core.validators import (
+    MaintAlignError,
     validate_instance,
     validate_solver_params,
-    MaintAlignError,
+)
+from utils.csv_loader import load_instance
+from utils.generator import (
+    generate_factory,
+    generate_industrial,
+    generate_large,
+    generate_medium_easy,
+    generate_medium_hard,
+    generate_small,
+    generate_tiny,
+    generate_xl,
 )
 
 # ── Page config ──────────────────────────────────────────────
@@ -489,11 +498,6 @@ def build_chain_topology(instance: ProblemInstance) -> go.Figure:
 # ═══════════════════════════════════════════════════════════════
 #  SIDEBAR
 # ═══════════════════════════════════════════════════════════════
-from utils.generator import (
-    generate_tiny, generate_small, generate_medium_easy,
-    generate_medium_hard, generate_large, generate_xl,
-    generate_industrial, generate_factory, generate_instance,
-)
 
 # Instance presets
 INSTANCE_PRESETS = {

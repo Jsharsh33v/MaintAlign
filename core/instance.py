@@ -84,9 +84,7 @@ CONSTRAINTS:
 """
 
 import json
-import math
-from dataclasses import dataclass, field, asdict
-from typing import List, Optional, Dict
+from dataclasses import asdict, dataclass, field
 
 
 @dataclass
@@ -144,7 +142,7 @@ class ProductionChain:
     A production chain: ordered sequence of machines that together
     produce output. If ANY machine in the chain is down, the entire
     chain produces nothing.
-    
+
     Economic insight: Maintaining a chain machine is more expensive
     than a standalone machine because you lose the chain's output,
     not just one machine's output. But skipping maintenance risks
@@ -152,7 +150,7 @@ class ProductionChain:
     """
     id: int
     name: str
-    machine_ids: List[int]          # ordered: [upstream → downstream]
+    machine_ids: list[int]          # ordered: [upstream → downstream]
     chain_value: int                # V_c: $/period when chain is running
     retooling_cost: int             # R_c: $ to restart chain after PM
 
@@ -164,9 +162,9 @@ class ProblemInstance:
     num_machines: int
     num_technicians: int            # K
     horizon: int                    # T
-    machines: List[MachineSpec]
-    chains: List[ProductionChain] = field(default_factory=list)
-    blocked_periods: List[int] = field(default_factory=list)  # Calendar: no PM here
+    machines: list[MachineSpec]
+    chains: list[ProductionChain] = field(default_factory=list)
+    blocked_periods: list[int] = field(default_factory=list)  # Calendar: no PM here
     max_tasks_per_machine: int = 0
 
     def __post_init__(self):
@@ -177,12 +175,12 @@ class ProblemInstance:
                 self.max_tasks_per_machine = max(self.max_tasks_per_machine, max_t + 1)
 
         # Build machine→chain lookup
-        self._machine_to_chain: Dict[int, int] = {}
+        self._machine_to_chain: dict[int, int] = {}
         for c in self.chains:
             for mid in c.machine_ids:
                 self._machine_to_chain[mid] = c.id
 
-    def get_chain_for_machine(self, machine_id: int) -> Optional[ProductionChain]:
+    def get_chain_for_machine(self, machine_id: int) -> ProductionChain | None:
         """Return the chain this machine belongs to, or None."""
         cid = self._machine_to_chain.get(machine_id)
         if cid is not None:
@@ -194,7 +192,7 @@ class ProblemInstance:
         return machine_id not in self._machine_to_chain
 
     @property
-    def standalone_machines(self) -> List[int]:
+    def standalone_machines(self) -> list[int]:
         return [m.id for m in self.machines if self.is_standalone(m.id)]
 
     @property
@@ -211,7 +209,7 @@ class ProblemInstance:
         """
         Compute the full cost of scheduling one PM task on this machine.
         Returns breakdown: {pm, prod_loss, retooling, total}.
-        
+
         This is the "weight" of the item in the knapsack analogy.
         """
         m = self.machines[machine_id]
@@ -247,7 +245,7 @@ class ProblemInstance:
 
     @classmethod
     def load(cls, filepath: str) -> 'ProblemInstance':
-        with open(filepath, 'r') as f:
+        with open(filepath) as f:
             data = json.load(f)
         machines = [MachineSpec(**m) for m in data["machines"]]
         chains = [ProductionChain(**c) for c in data.get("chains", [])]
@@ -273,7 +271,7 @@ class ProblemInstance:
         ]
 
         if self.chains:
-            lines.append(f"\n Production Chains:")
+            lines.append("\n Production Chains:")
             for c in self.chains:
                 mnames = [self.machines[mid].name for mid in c.machine_ids]
                 lines.append(

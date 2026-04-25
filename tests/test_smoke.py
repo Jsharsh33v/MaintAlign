@@ -1,10 +1,9 @@
 """Smoke tests — verify core pipeline end-to-end on tiny instances."""
 
-import pytest
 
-from utils.generator import generate_tiny, generate_small, generate_instance
-from core.baseline import fixed_interval_schedule, ALL_STRATEGIES
+from core.baseline import ALL_STRATEGIES, fixed_interval_schedule
 from core.solver import solve
+from utils.generator import generate_small, generate_tiny
 
 
 class TestGenerator:
@@ -45,7 +44,7 @@ class TestBaselines:
     def test_schedule_respects_horizon(self):
         inst = generate_tiny(seed=0)
         result = fixed_interval_schedule(inst, "analytical")
-        for mid, starts in result.machine_schedules.items():
+        for _mid, starts in result.machine_schedules.items():
             for s in starts:
                 assert 0 <= s < inst.horizon
 

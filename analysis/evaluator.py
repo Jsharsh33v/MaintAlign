@@ -11,11 +11,10 @@ Provides:
 
 import logging
 import statistics
-from typing import Dict, List, Optional
 from dataclasses import dataclass, field
 
+from analysis.simulator import simulate_schedule
 from core.instance import ProblemInstance
-from analysis.simulator import simulate_schedule, SimulationResult
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +36,7 @@ class EvaluationResult:
     mean_cm_cost: float = 0.0
     mean_prod_loss: float = 0.0
     mean_retooling_cost: float = 0.0
-    all_costs: List[float] = field(default_factory=list)
+    all_costs: list[float] = field(default_factory=list)
 
     def summary(self) -> str:
         return (
@@ -51,7 +50,7 @@ class EvaluationResult:
 
 def evaluate_schedule(
     instance: ProblemInstance,
-    schedule: Dict[int, List[int]],
+    schedule: dict[int, list[int]],
     schedule_name: str = "schedule",
     n_sims: int = 1000,
     base_seed: int = 12345,
@@ -121,10 +120,10 @@ def evaluate_schedule(
 
 def compare_schedules(
     instance: ProblemInstance,
-    schedules: Dict[str, Dict[int, List[int]]],
+    schedules: dict[str, dict[int, list[int]]],
     n_sims: int = 1000,
     base_seed: int = 12345,
-) -> Dict[str, EvaluationResult]:
+) -> dict[str, EvaluationResult]:
     """
     Compare multiple schedules using the same random seeds for fairness.
 
@@ -145,7 +144,7 @@ def compare_schedules(
 
     # Print comparison
     logger.info("─── Monte Carlo Comparison (%d sims) ───", n_sims)
-    for name, r in results.items():
+    for _name, r in results.items():
         logger.info(r.summary())
 
     return results

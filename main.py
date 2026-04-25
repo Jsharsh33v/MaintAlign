@@ -16,25 +16,34 @@ Usage:
 """
 
 import argparse
+import json
 import logging
 import os
 import sys
-import json
-from utils.generator import (
-    generate_tiny, generate_small, generate_medium_easy,
-    generate_medium_hard, generate_large, generate_xl,
-    generate_industrial, generate_factory, generate_instance,
-)
-from core.solver import solve
-from core.validators import validate_instance, MaintAlignError
-from core.baseline import fixed_interval_schedule, ALL_STRATEGIES
-from utils.visualizer import (
-    plot_gantt, plot_cost_comparison,
-    plot_technician_utilization, plot_sensitivity,
-    plot_chain_breakdown,
-)
+
 from analysis.evaluator import compare_schedules
+from core.baseline import ALL_STRATEGIES, fixed_interval_schedule
 from core.decomposer import solve_decomposed
+from core.solver import solve
+from core.validators import MaintAlignError, validate_instance
+from utils.generator import (
+    generate_factory,
+    generate_industrial,
+    generate_instance,
+    generate_large,
+    generate_medium_easy,
+    generate_medium_hard,
+    generate_small,
+    generate_tiny,
+    generate_xl,
+)
+from utils.visualizer import (
+    plot_chain_breakdown,
+    plot_cost_comparison,
+    plot_gantt,
+    plot_sensitivity,
+    plot_technician_utilization,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +161,7 @@ def run_demo(time_limit=30):
 
     # Summary table
     print(f"\n{'═'*60}")
-    print(f" SUMMARY")
+    print(" SUMMARY")
     print(f"{'═'*60}")
     print(f" {'Instance':<16}{'Chains':<7}{'Optimized':>11}{'Baseline':>11}{'Save':>8}")
     print(f" {'─'*52}")
@@ -163,7 +172,7 @@ def run_demo(time_limit=30):
               f"${best_b:>9,.0f}"
               f"{r['savings_pct']:>7.1f}%")
 
-    print(f"\n Results saved to results/demo/")
+    print("\n Results saved to results/demo/")
 
 
 def run_sensitivity():
@@ -198,7 +207,7 @@ def run_sensitivity():
                     save_path="results/sensitivity/cost_vs_K.png")
 
     # Shadow price analysis
-    print(f"\n  Shadow Price of Technicians:")
+    print("\n  Shadow Price of Technicians:")
     ks = sorted(results_by_k.keys())
     for i in range(1, len(ks)):
         prev_cost = results_by_k[ks[i-1]].objective_value
@@ -208,7 +217,7 @@ def run_sensitivity():
             print(f"    K: {ks[i-1]}→{ks[i]}  Δcost = ${delta:>+10,.2f}")
 
     # Also vary cost ratio
-    print(f"\n  Cost Ratio Sensitivity (CM/PM):")
+    print("\n  Cost Ratio Sensitivity (CM/PM):")
     for ratio in [2, 5, 8, 12, 20]:
         inst = generate_instance(
             f"sens_ratio{ratio}", base_M, 3, base_T,
@@ -219,7 +228,7 @@ def run_sensitivity():
         print(f"    CM/PM={ratio:>2}x: ${result.objective_value:>10,.2f}  "
               f"tasks={len(result.tasks)}")
 
-    print(f"\n  Results saved to results/sensitivity/")
+    print("\n  Results saved to results/sensitivity/")
 
 
 def run_full(time_limit=60):
@@ -258,7 +267,7 @@ def run_full(time_limit=60):
                   f"Time={r['optimized']['solve_time']:.2f}s")
 
     print(f"\n{'═'*70}")
-    print(f" FULL RESULTS")
+    print(" FULL RESULTS")
     print(f"{'═'*70}")
     print(f" {'Instance':<18}{'M':<4}{'K':<4}{'T':<5}{'Ch':<4}{'RC':<6}"
           f"{'Opt$':>10}{'Base$':>10}{'Save%':>8}{'Time':>8}")
@@ -272,7 +281,7 @@ def run_full(time_limit=60):
               f"{r['savings_pct']:>7.1f}%"
               f"{r['optimized']['solve_time']:>7.2f}s")
 
-    print(f"\n Results saved to results/full/")
+    print("\n Results saved to results/full/")
 
 
 def main():
