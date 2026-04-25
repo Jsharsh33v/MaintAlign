@@ -16,6 +16,9 @@ dependencies = [
     "pandas>=2.0",
 ]
 
+[tool.setuptools.packages.find]
+include = ["core*", "analysis*", "utils*"]
+
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
