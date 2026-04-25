@@ -26,6 +26,7 @@ from utils.generator import (
     generate_industrial, generate_factory, generate_instance,
 )
 from core.solver import solve
+from core.validators import validate_instance, MaintAlignError
 from core.baseline import fixed_interval_schedule, ALL_STRATEGIES
 from utils.visualizer import (
     plot_gantt, plot_cost_comparison,
@@ -328,7 +329,22 @@ Examples:
 
     if args.csv:
         from utils.csv_loader import load_instance as csv_load
-        inst = csv_load(args.csv, args.chains)
+        try:
+            inst = csv_load(args.csv, args.chains)
+            validate_instance(inst)
+        except FileNotFoundError as e:
+            print(f"ERROR: file not found — {e}", file=sys.stderr)
+            sys.exit(1)
+        except MaintAlignError as e:
+            print(f"ERROR: invalid instance — {e}", file=sys.stderr)
+            sys.exit(1)
+        except ValueError as e:
+            print(f"ERROR: could not parse CSV — {e}", file=sys.stderr)
+            sys.exit(1)
+        except UnicodeDecodeError:
+            print("ERROR: CSV file is not UTF-8 encoded. "
+                  "Please re-save as UTF-8 and try again.", file=sys.stderr)
+            sys.exit(1)
 
         # Apply options
         if args.weekends:

@@ -23,6 +23,11 @@ from core.solver import solve, SolverResult
 from core.baseline import fixed_interval_schedule, ALL_STRATEGIES
 from analysis.evaluator import evaluate_schedule, compare_schedules
 from utils.csv_loader import load_instance, load_machines_csv, load_chains_csv
+from core.validators import (
+    validate_instance,
+    validate_solver_params,
+    MaintAlignError,
+)
 
 # ── Page config ──────────────────────────────────────────────
 st.set_page_config(
@@ -567,28 +572,52 @@ if run_clicked:
     with st.status("**Optimizing maintenance schedule...**", expanded=True) as status:
         # Step 1: Load / generate instance
         st.write("Generating problem instance...")
-        if data_source == "Generated Instance":
-            gen_fn = INSTANCE_PRESETS[preset_name]
-            inst = gen_fn(seed=seed)
-        else:
-            if uploaded_machines is None:
-                st.error("Please upload a machines CSV file first.")
-                st.stop()
-            # Write uploaded bytes to temp files
-            m_bytes = uploaded_machines.getvalue()
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-                f.write(m_bytes.decode("utf-8"))
-                tmp_machines = f.name
-            tmp_chains = None
-            if uploaded_chains is not None:
-                c_bytes = uploaded_chains.getvalue()
+        inst = None
+        tmp_machines = None
+        tmp_chains = None
+        try:
+            if data_source == "Generated Instance":
+                gen_fn = INSTANCE_PRESETS[preset_name]
+                inst = gen_fn(seed=seed)
+            else:
+                if uploaded_machines is None:
+                    st.error("Please upload a machines CSV file first.")
+                    st.stop()
+                # Write uploaded bytes to temp files
+                m_bytes = uploaded_machines.getvalue()
                 with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
-                    f.write(c_bytes.decode("utf-8"))
-                    tmp_chains = f.name
-            inst = load_instance(tmp_machines, tmp_chains)
-            os.unlink(tmp_machines)
-            if tmp_chains:
-                os.unlink(tmp_chains)
+                    f.write(m_bytes.decode("utf-8"))
+                    tmp_machines = f.name
+                if uploaded_chains is not None:
+                    c_bytes = uploaded_chains.getvalue()
+                    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as f:
+                        f.write(c_bytes.decode("utf-8"))
+                        tmp_chains = f.name
+                inst = load_instance(tmp_machines, tmp_chains)
+            validate_instance(inst)
+        except UnicodeDecodeError:
+            st.error("CSV file is not valid UTF-8. Please re-save it as UTF-8 and try again.")
+            st.stop()
+        except FileNotFoundError as e:
+            st.error(f"File not found: {e}")
+            st.stop()
+        except MaintAlignError as e:
+            st.error(f"Invalid instance: {e}")
+            st.stop()
+        except ValueError as e:
+            st.error(f"Could not parse CSV: {e}")
+            st.stop()
+        except Exception as e:
+            st.error(f"Unexpected error loading instance: {e}")
+            st.stop()
+        finally:
+            # Clean up temp files
+            for tmp in (tmp_machines, tmp_chains):
+                if tmp is not None:
+                    try:
+                        os.unlink(tmp)
+                    except OSError:
+                        pass
 
         st.write(f"Instance loaded: **{inst.num_machines}** machines, "
                  f"**{inst.num_technicians}** technicians, "
@@ -619,8 +648,35 @@ if run_clicked:
         # Step 3: Solve with CP-SAT
         st.write(f"Running CP-SAT solver (time limit: **{time_limit}s**)...")
         t0 = time.time()
-        result = solve(inst, time_limit_seconds=time_limit, hint_schedule=hint)
+        try:
+            validate_solver_params(time_limit_seconds=time_limit, repair_factor=repair_factor)
+            result = solve(inst, time_limit_seconds=time_limit, hint_schedule=hint)
+        except MaintAlignError as e:
+            st.error(f"Bad solver parameter: {e}")
+            st.stop()
+        except Exception as e:
+            st.error(
+                f"Solver failed: {e}\n\n"
+                "Try reducing the problem size, increasing the time limit, "
+                "or enabling decomposition for large instances."
+            )
+            st.stop()
         solve_elapsed = time.time() - t0
+
+        # Check solver status
+        if result.status not in ("OPTIMAL", "FEASIBLE"):
+            st.warning(
+                f"Solver returned status **{result.status}**. "
+                "No feasible schedule was found. Try increasing the time limit "
+                "or reducing problem complexity."
+            )
+            st.stop()
+        if result.status == "FEASIBLE":
+            st.warning(
+                "Solver found a feasible solution, but could not prove optimality "
+                "within the time limit. The result is an upper bound, not a proven optimum."
+            )
+
         st.write(f"Solver finished in **{solve_elapsed:.1f}s** — "
                  f"Status: **{result.status}** — "
                  f"Cost: **${result.objective_value:,.0f}**")
@@ -776,13 +832,21 @@ if st.session_state.get("solved"):
 
         if run_mc or st.session_state.get("mc_results"):
             if run_mc:
-                with st.spinner(f"Running {n_sims} simulations per strategy..."):
-                    schedules = {
-                        name: b.machine_schedules for name, b in baselines.items()
-                    }
-                    schedules["Optimized"] = result.machine_schedules
-                    mc_results = compare_schedules(inst, schedules, n_sims=n_sims)
-                st.session_state["mc_results"] = mc_results
+                try:
+                    validate_solver_params(n_sims=n_sims)
+                    with st.spinner(f"Running {n_sims} simulations per strategy..."):
+                        schedules = {
+                            name: b.machine_schedules for name, b in baselines.items()
+                        }
+                        schedules["Optimized"] = result.machine_schedules
+                        mc_results = compare_schedules(inst, schedules, n_sims=n_sims)
+                    st.session_state["mc_results"] = mc_results
+                except MaintAlignError as e:
+                    st.error(f"Invalid simulation parameter: {e}")
+                    st.stop()
+                except Exception as e:
+                    st.error(f"Monte Carlo simulation failed: {e}")
+                    st.stop()
 
             mc_results = st.session_state["mc_results"]
 
