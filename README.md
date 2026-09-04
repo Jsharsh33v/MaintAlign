@@ -121,7 +121,8 @@ MaintAlign/
 │
 ├── core/                          # Core data models & solvers
 │   ├── instance.py                #   ProblemInstance, MachineSpec, ProductionChain
-│   ├── solver.py                  #   CP-SAT solver (optional tasks + chain costs)
+│   ├── costing.py                 #   The one cost model every schedule is priced by
+│   ├── solver.py                  #   CP-SAT solver (optional tasks + chain outages)
 │   ├── baseline.py                #   4 baseline strategies for comparison
 │   ├── decomposer.py              #   Problem decomposition for large instances
 │   └── validators.py              #   Input validation & custom exceptions
@@ -146,6 +147,10 @@ MaintAlign/
 ├── tests/                         # pytest test suite
 │   ├── conftest.py                #   Shared fixtures
 │   ├── test_smoke.py              #   End-to-end smoke tests
+│   ├── test_costing.py            #   Objective == cost model; shared-outage pricing
+│   ├── test_solver.py             #   Valid task bounds, chain outages, imperfect repair
+│   ├── test_simulator.py          #   Monte Carlo matches the objective's failure model
+│   ├── test_instance.py           #   Analytical interval, virtual age
 │   ├── test_validators.py         #   Validator unit tests
 │   └── test_csv_loader.py         #   CSV parsing tests
 │
@@ -248,7 +253,7 @@ defines a custom exception hierarchy:
 
 - `max_interval ≥ maintenance_duration` — otherwise no PM can fit
 - `cm_cost > pm_cost` — otherwise PM is never economical
-- `repair_factor ∈ (0, 1]` — valid range for Kijima Type I imperfect repair
+- `repair_factor ∈ (0, 1]` — fraction of accumulated age a PM removes (Kijima Type I)
 - Chain machine IDs all reference existing machines
 - No machine appears in multiple chains
 - `blocked_periods` are within `[0, horizon)`
@@ -265,7 +270,8 @@ present the validation message cleanly — no raw tracebacks are shown to the us
 ## Problem Overview
 
 - **Machines** have Weibull failure distributions — the longer since last PM, the higher the breakdown risk.
-- **Production chains** link machines: if ANY machine in a chain is down, the ENTIRE chain stops.
+- **Production chains** link machines: if ANY machine in a chain is down, the ENTIRE chain stops. A period in which several chain machines are down together is paid once, and retooling once per restart, so clustering maintenance is rewarded by the model rather than assumed.
+- **Breakdowns** follow a minimal-repair (NHPP) Weibull process; `cm_cost` is the all-in price of one (repair, parts and lost production), and the Monte Carlo simulator prices the same process the solver optimises.
 - **Technicians** are a shared, limited resource — not all machines can be maintained simultaneously.
 - The solver decides **which** machines to maintain, **when**, and **how often** — minimizing total expected cost.
 
@@ -281,7 +287,7 @@ present the validation message cleanly — no raw tracebacks are shown to the us
 | β (beta) | Weibull shape: higher = more predictable wear-out |
 | η (eta) | Weibull scale: characteristic life in periods |
 | W | Max interval allowed between PMs |
-| Kijima Type I | Imperfect repair model: PM restores machine to `repair_factor × age`, not fully new |
+| Kijima Type I | Imperfect PM: a PM removes the fraction `repair_factor` of the machine's accumulated age (virtual age after PM = `(1 − repair_factor) × age`). 1.0 = as new. Read by the solver objective, the cost model and the Monte Carlo simulator alike |
 
 ---
 

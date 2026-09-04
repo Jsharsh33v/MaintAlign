@@ -1,23 +1,51 @@
 """
 MaintAlign - Monte Carlo Simulator
 =====================================
-Simulate random machine failures against a given PM schedule.
+Replay a PM schedule against random breakdowns and price what happened.
 
-Uses Weibull failure model to generate random breakdown events between
-PM windows and calculates actual costs including emergency repairs,
-chain cascade downtime, and production losses.
+THE FAILURE PROCESS (matches the objective)
+  Failures on a machine form a non-homogeneous Poisson process with the
+  Weibull intensity λ(a) = (β/η)(a/η)^(β−1), where a is the machine's
+  VIRTUAL AGE. Corrective repair is MINIMAL: it returns the machine to
+  service at the same virtual age, so successive failures within a gap are
+  drawn from the conditional NHPP and the expected count over a gap of
+  length g that starts at virtual age a is ((a + g)/η)^β − (a/η)^β —
+  exactly the term the solver minimises. Only PM changes the virtual age:
+  to 0 under perfect repair, to round((1 − repair_factor) × age) under
+  Kijima type I imperfect repair (``MachineSpec.virtual_age_after_pm``).
 
-COST STRUCTURE (matches solver):
-  Standalone machines:
-    PM event cost = pm_cost + production_value × duration
+  The previous simulator reset the age to 0 after every corrective repair
+  (a renewal process), which produced 1.8–3.5× fewer failures than the
+  objective assumed, so the Monte Carlo chapter validated a different model
+  from the one being optimised.
 
-  Chain machines:
-    PM event cost = pm_cost
-      + if grouped (overlapping chain-mate PM): 50% retooling + 50% chain_value × d
-      + if isolated (no overlap):              full retooling + full chain_value × d
+COST STRUCTURE (one basis)
+  Deterministic part (PM, production loss, retooling): priced by
+  ``core.costing.deterministic_cost``, the same function that prices the
+  solver's objective and the baselines. A shared chain outage is paid once
+  per period and retooling once per restart; per-event costs in the event
+  log are the ``core.costing`` attribution of those totals.
 
-  Failure cost (all machines):
-    CM event cost = cm_cost + production_loss × cm_duration
+  Failure cost: c_cm per failure, and NOTHING ELSE. c_cm is all-in (repair
+  labour, expedited parts and the production lost during the unplanned
+  outage), which is what the objective assumes and what
+  ``utils.calibration.corrective_maintenance_cost`` constructs. The
+  previous simulator charged c_cm and then added chain_value × cm_duration
+  on top, double-counting the downtime under that definition.
+
+  Consequently the mean simulated total cost converges to
+  ``deterministic_cost(instance, schedule).total`` — the Monte Carlo run
+  validates the objective's expectation and adds the distribution around it.
+
+  ``cm_duration_multiplier`` therefore affects neither cost nor the failure
+  clock; it only feeds the ``total_downtime`` statistic.
+
+RANDOM STREAMS
+  Each machine draws from its own ``random.Random`` seeded from
+  (seed, machine_id), so two schedules simulated with the same seed see the
+  same failure draws on every machine whose schedule is unchanged. That is
+  what makes ``analysis.evaluator``'s same-seed comparison a common-random-
+  numbers comparison rather than two independent estimates.
 """
 
 import logging
@@ -25,7 +53,8 @@ import math
 import random
 from dataclasses import dataclass, field
 
-from core.instance import ProblemInstance
+from core.costing import attribute_chain_costs, deterministic_cost
+from core.instance import MachineSpec, ProblemInstance
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +64,7 @@ class SimulationEvent:
     """One event during simulation."""
     time: float
     machine_id: int
-    event_type: str       # 'pm', 'failure', 'cm_repair'
+    event_type: str       # 'pm' | 'failure'
     cost: float = 0.0
     downtime: int = 0
     chain_loss: float = 0.0
@@ -54,68 +83,44 @@ class SimulationResult:
     events: list[SimulationEvent] = field(default_factory=list)
 
 
-def _sample_weibull_failure(beta: float, eta: float, age: float) -> float:
+def machine_rng(seed: int | None, machine_id: int) -> random.Random:
+    """One independent, reproducible stream per machine (common random numbers)."""
+    if seed is None:
+        return random.Random()
+    return random.Random(f"maintalign/{seed}/{machine_id}")
+
+
+def next_failure_age(beta: float, eta: float, age: float, rng: random.Random) -> float:
+    """Virtual age at the next failure, given none since virtual age ``age``.
+
+    Inverts the conditional NHPP survival
+        P(no failure in (a, a + x]) = exp(−(Λ(a + x) − Λ(a))),  Λ(t) = (t/η)^β
+    with U ~ Uniform(0, 1):  a_next = η · ((a/η)^β − ln U)^(1/β).
     """
-    Sample time to next failure from a Weibull distribution.
+    u = rng.random()
+    while u <= 0.0:
+        u = rng.random()
+    cumulative = (age / eta) ** beta - math.log(u)
+    return eta * cumulative ** (1.0 / beta)
 
-    Uses the conditional Weibull: given that a machine has survived to 'age',
-    sample when it will next fail.
 
-    T | T > age ~ age + Weibull_residual
+def sample_failures_in_gap(machine: MachineSpec, gap_start: float, gap_length: float,
+                           virtual_age: float, rng: random.Random) -> list[float]:
+    """Absolute failure times in [gap_start, gap_start + gap_length).
 
-    For NHPP with rate λ(t) = (β/η)(t/η)^(β-1), we use thinning.
-    Simplified: sample from Weibull(β, η) and reject if < age.
+    The virtual-age clock runs from ``virtual_age`` at ``gap_start``;
+    corrective repair is minimal, so the clock is never reset inside the gap.
     """
-    # Direct sampling using inverse CDF method
-    # For a Weibull with shape β and scale η:
-    # T = η × (-ln(U))^(1/β)
-    # We need T > age, so we sample conditionally
-    if beta <= 0 or eta <= 0:
-        return float('inf')
-
-    # Survival function at age: S(age) = exp(-(age/η)^β)
-    surv_age = math.exp(-((age / eta) ** beta))
-    if surv_age <= 0:
-        # Already effectively failed
-        return age + 0.001
-
-    # Sample U ~ Uniform(0, S(age)) to get conditional failure time
-    u = random.random() * surv_age
-    if u <= 0:
-        u = 1e-15
-
-    # Inverse CDF: T = η × (-ln(U))^(1/β)
-    t = eta * ((-math.log(u)) ** (1.0 / beta))
-    return t
-
-
-def _detect_chain_overlap(
-    m_idx: int,
-    pm_start: int,
-    pm_end: int,
-    instance: ProblemInstance,
-    schedule: dict[int, list[int]],
-) -> bool:
-    """
-    Check if a PM event on machine m_idx overlaps with any chain-mate PM.
-
-    Overlap means the time windows [pm_start, pm_end) and [s2, s2+d2) intersect.
-    This mirrors the solver's opportunistic grouping logic.
-    """
-    chain = instance.get_chain_for_machine(m_idx)
-    if not chain:
-        return False
-
-    for mate_id in chain.machine_ids:
-        if mate_id == m_idx:
-            continue
-        mate_d = instance.machines[mate_id].maintenance_duration
-        for s2 in schedule.get(mate_id, []):
-            # Overlap: pm_start < s2 + mate_d  AND  s2 < pm_end
-            if pm_start < s2 + mate_d and s2 < pm_end:
-                return True
-
-    return False
+    if gap_length <= 0:
+        return []
+    end_age = virtual_age + gap_length
+    times = []
+    age = float(virtual_age)
+    while True:
+        age = next_failure_age(machine.weibull_beta, machine.weibull_eta, age, rng)
+        if age >= end_age:
+            return times
+        times.append(gap_start + (age - virtual_age))
 
 
 def simulate_schedule(
@@ -130,17 +135,23 @@ def simulate_schedule(
     Args:
         instance: problem instance
         schedule: {machine_id: [start_times]} — the PM schedule
-        seed: random seed for reproducibility
-        cm_duration_multiplier: CM takes this × PM duration
+        seed: base seed; each machine gets its own stream derived from it
+        cm_duration_multiplier: corrective repair takes this × PM duration.
+            Feeds ``total_downtime`` only — the cost of that downtime is
+            inside ``cm_cost``, and the failure clock does not stop for it.
 
     Returns:
         SimulationResult with costs, failures, and event log
     """
-    if seed is not None:
-        random.seed(seed)
-
     H = instance.horizon
     result = SimulationResult()
+
+    # ── Deterministic part: exactly what the objective charges ──────
+    det = deterministic_cost(instance, schedule)
+    shares = attribute_chain_costs(instance, schedule)
+    result.total_pm_cost = det.pm_cost
+    result.total_production_loss = det.production_loss
+    result.total_retooling_cost = det.retooling_cost
 
     for m_idx, machine in enumerate(instance.machines):
         pm_starts = sorted(schedule.get(m_idx, []))
@@ -148,123 +159,39 @@ def simulate_schedule(
         cm_duration = int(d * cm_duration_multiplier)
         chain = instance.get_chain_for_machine(m_idx)
 
-        # Build PM windows: [(start, end), ...]
-        pm_windows = [(s, s + d) for s in pm_starts]
-
-        # ─── PM costs (matches solver cost structure) ───────────
         for s in pm_starts:
-            pm_end = s + d
-
-            # Base PM cost (always charged)
-            pm_cost = machine.pm_cost
-
-            # Production loss + retooling depends on chain vs standalone
-            prod_loss = 0.0
-            retooling = 0.0
-
             if chain:
-                # Chain machine: check for opportunistic grouping
-                is_grouped = _detect_chain_overlap(
-                    m_idx, s, pm_end, instance, schedule
-                )
-                if is_grouped:
-                    # 50% discount on retooling + production loss
-                    prod_loss = chain.chain_value * d * 0.5
-                    retooling = chain.retooling_cost * 0.5
-                else:
-                    # Isolated: full cost
-                    prod_loss = chain.chain_value * d
-                    retooling = chain.retooling_cost
+                prod_loss, retooling = shares.get((m_idx, s), (0.0, 0.0))
             else:
-                # Standalone: production loss = production_value × duration
-                prod_loss = machine.production_value * d
-
-            result.total_pm_cost += pm_cost
-            result.total_production_loss += prod_loss
-            result.total_retooling_cost += retooling
-
-            total_event_cost = pm_cost + prod_loss + retooling
+                prod_loss, retooling = machine.production_value * d, 0.0
             result.events.append(SimulationEvent(
                 time=s, machine_id=m_idx, event_type='pm',
-                cost=total_event_cost, downtime=d,
-                chain_loss=prod_loss if chain else 0.0
+                cost=machine.pm_cost + prod_loss + retooling, downtime=d,
+                chain_loss=prod_loss if chain else 0.0,
             ))
 
-        # ─── Simulate failures between PMs ──────────────────────
-        # Machine age resets to 0 after each PM
-        age = 0.0
-        current_time = 0.0
+        # ── Random part: minimal-repair failures over every gap ────
+        rng = machine_rng(seed, m_idx)
+        virtual_age = 0
+        prev_end = 0
+        gaps = []
+        for s in pm_starts:
+            gaps.append((prev_end, s - prev_end, virtual_age))
+            virtual_age = machine.virtual_age_after_pm(virtual_age + max(0, s - prev_end))
+            prev_end = s + d
+        gaps.append((prev_end, H - prev_end, virtual_age))
 
-        for pm_start, pm_end in pm_windows:
-            # Simulate failures from current_time to pm_start
-            while current_time < pm_start:
-                # Sample next failure time
-                fail_time = _sample_weibull_failure(
-                    machine.weibull_beta, machine.weibull_eta, age
-                )
-                absolute_fail_time = current_time + (fail_time - age)
-
-                if absolute_fail_time < pm_start:
-                    # Failure occurs before PM!
-                    cm_cost = machine.cm_cost
-                    if chain:
-                        chain_loss = chain.chain_value * cm_duration
-                    else:
-                        chain_loss = machine.production_value * cm_duration
-
-                    result.total_cm_cost += cm_cost
-                    result.total_production_loss += chain_loss
-                    result.total_downtime += cm_duration
-                    result.num_failures += 1
-                    result.events.append(SimulationEvent(
-                        time=absolute_fail_time, machine_id=m_idx,
-                        event_type='failure',
-                        cost=cm_cost, downtime=cm_duration,
-                        chain_loss=chain_loss
-                    ))
-
-                    # After CM repair, machine age resets
-                    current_time = absolute_fail_time + cm_duration
-                    age = 0.0
-
-                    if current_time >= pm_start:
-                        break
-                else:
-                    # No failure before PM, advance to PM
-                    break
-
-            # PM happens → age resets
-            current_time = pm_end
-            age = 0.0
-
-        # Simulate failures from last PM to end of horizon
-        while current_time < H:
-            fail_time = _sample_weibull_failure(
-                machine.weibull_beta, machine.weibull_eta, age
-            )
-            absolute_fail_time = current_time + (fail_time - age)
-
-            if absolute_fail_time < H:
-                cm_cost = machine.cm_cost
-                if chain:
-                    chain_loss = chain.chain_value * cm_duration
-                else:
-                    chain_loss = machine.production_value * cm_duration
-
-                result.total_cm_cost += cm_cost
-                result.total_production_loss += chain_loss
+        for gap_start, gap_length, va in gaps:
+            for fail_time in sample_failures_in_gap(machine, gap_start, gap_length, va, rng):
+                result.total_cm_cost += machine.cm_cost
                 result.total_downtime += cm_duration
                 result.num_failures += 1
                 result.events.append(SimulationEvent(
-                    time=absolute_fail_time, machine_id=m_idx,
-                    event_type='failure', cost=cm_cost,
-                    downtime=cm_duration, chain_loss=chain_loss
+                    time=fail_time, machine_id=m_idx, event_type='failure',
+                    cost=machine.cm_cost, downtime=cm_duration, chain_loss=0.0,
                 ))
-                current_time = absolute_fail_time + cm_duration
-                age = 0.0
-            else:
-                break
 
+    result.events.sort(key=lambda e: (e.time, e.machine_id))
     result.total_cost = (result.total_pm_cost + result.total_cm_cost
                          + result.total_production_loss
                          + result.total_retooling_cost)

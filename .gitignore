@@ -13,7 +13,6 @@ venv/
 # IDE
 .idea/
 .vscode/
-.claude/
 *.swp
 *.swo
 pyrightconfig.json

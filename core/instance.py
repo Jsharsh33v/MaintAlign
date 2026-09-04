@@ -54,22 +54,40 @@ OBJECTIVE (minimize total expected cost):
 
   min  Σ_m Σ_j  c_pm_m × p_{m,j}                              ... (1) PM cost
      + Σ_{m∈standalone} Σ_j  v_m × d_m × p_{m,j}              ... (2) standalone prod loss
-     + Σ_c  V_c × Σ_j Σ_{m∈machines(c)} d_m × p_{m,j}        ... (3) chain prod loss
-     + Σ_c  R_c × Σ_j Σ_{m∈machines(c)} p_{m,j}               ... (4) chain retooling
-     + Σ_m  E[failure_cost_m(gaps)]                             ... (5) expected breakdown
+     + Σ_c  V_c × Σ_t down_{c,t}                               ... (3) chain prod loss
+     + Σ_c  R_c × Σ_t restart_{c,t}                            ... (4) chain retooling
+     + Σ_m  c_cm_m × E[N_m]                                     ... (5) expected breakdown
 
-  Term (3): When any machine in chain c undergoes PM, the ENTIRE chain
-  stops for d_m periods. Chain production loss = V_c × d_m per event.
-  (Pessimistic: ignores overlapping PM within a chain. This gives the
-  solver incentive to cluster same-chain maintenance together.)
+  down_{c,t} ∈ {0,1}     1 iff some machine of chain c is under PM in period t
+                         (the OR over machines(c) of "a task covers t")
+  restart_{c,t} ∈ {0,1}  1 iff down_{c,t} ∧ ¬down_{c,t−1}: the chain is
+                         restarted once per maximal outage, however many of
+                         its machines shared that outage
 
-  Term (4): Each PM event on a chain machine triggers a chain restart
-  costing R_c. Clustering maintenance reduces effective restarts but
-  this approximation is conservative and CP-SAT-friendly.
+  Term (3): a chain produces nothing in any period in which at least one
+  of its machines is under maintenance, and that period is paid ONCE no
+  matter how many chain machines are down together. Clustering same-chain
+  maintenance is therefore cheaper as an emergent property of the model,
+  not an assumed discount. (The earlier model granted a flat 50% credit to
+  any task overlapping a chain-mate, which was right for two machines and
+  charged 1.5 outages for three.)
 
-  Term (5): Weibull expected failures in each gap between PM events.
-  For a gap of length g:  E[failures] = (g / η_m)^β_m
-  Expected cost = E[failures] × c_cm_m
+  Term (4): retooling is charged once per restart, i.e. once per maximal
+  run of consecutive down periods, not once per PM event.
+
+  Term (5): minimal-repair (NHPP) failures with the Weibull intensity
+  λ(a) = (β/η)(a/η)^(β−1), a = virtual age. Over a gap of length g that
+  starts at virtual age a:
+
+      E[N] = ((a + g) / η)^β − (a / η)^β
+
+  With perfect PM (repair_factor = 1) the virtual age is 0 after every PM
+  and this is the familiar (g/η)^β. c_cm is ALL-IN: repair labour,
+  expedited parts and the production lost during the unplanned outage.
+  No separate downtime term is charged for a failure anywhere in the code
+  base, and corrective repair is minimal (it does not change the virtual
+  age). Imperfect PM (Kijima type I): virtual age after a PM is
+  round((1 − repair_factor) × age before it), in whole periods.
 
 CONSTRAINTS:
   (C1) Technician capacity:    Cumulative(all intervals, demand=1, cap=K)
@@ -100,25 +118,42 @@ class MachineSpec:
     weibull_eta: float              # η_m
     max_interval: int               # W_m
     min_gap: int                    # g_m
-    repair_factor: float = 1.0     # 1.0 = perfect repair, 0.7 = restores to 70%
+    repair_factor: float = 1.0     # Kijima I: PM removes this fraction of the age
+                                    # (1.0 = as new; 0.7 leaves 30% of the age behind)
 
     def expected_failures(self, age: int) -> float:
-        """E[N(t)] = (t / η)^β — Weibull power law process."""
+        """E[N(t)] = (t / η)^β — minimal-repair (NHPP) failures from age 0."""
         if age <= 0:
             return 0.0
         return (age / self.weibull_eta) ** self.weibull_beta
 
     def expected_failure_cost(self, age: int) -> float:
-        """Expected CM cost for a gap of 'age' periods."""
+        """Expected breakdown cost over a gap of ``age`` periods from age 0.
+
+        ``cm_cost`` is all-in (repair, parts and the production lost during
+        the unplanned outage), so this is the whole failure charge: nothing
+        else in the code base adds a downtime term for a failure.
+        """
         return self.expected_failures(age) * self.cm_cost
 
-    def virtual_age_after_pm(self, age_before: float) -> float:
-        """Virtual age after imperfect PM. Perfect repair → 0, imperfect → residual."""
-        return (1.0 - self.repair_factor) * age_before
+    def virtual_age_after_pm(self, age_before: float) -> int:
+        """Virtual age, in whole periods, after a PM — Kijima type I.
+
+        A PM removes the fraction ``repair_factor`` of the age accumulated so
+        far: perfect repair (1.0) returns the machine to 0, 0.7 leaves 30% of
+        its age behind. The result is rounded to whole periods because the
+        CP-SAT model indexes its failure tables by integer age;
+        ``core.costing`` and ``analysis.simulator`` call this same function
+        so that all three price a schedule identically.
+        """
+        return int(round((1.0 - self.repair_factor) * age_before))
 
     def expected_failures_imperfect(self, gap: int, virtual_age: float) -> float:
-        """Expected failures in a gap starting from a virtual age.
-        E[failures] = ((virtual_age + gap) / η)^β - (virtual_age / η)^β
+        """Expected failures over a gap that starts at ``virtual_age``.
+
+        E[N] = ((virtual_age + gap) / η)^β − (virtual_age / η)^β — the
+        conditional NHPP count. Equals ``expected_failures(gap)`` when the
+        virtual age is 0.
         """
         if gap <= 0:
             return 0.0
@@ -129,10 +164,23 @@ class MachineSpec:
         )
 
     def optimal_interval_analytical(self) -> float:
-        """Closed-form t* = η × (c_pm / (β × (c_cm - c_pm)))^(1/β)."""
-        if self.weibull_beta <= 1 or self.cm_cost <= self.pm_cost:
+        """Cost-rate-minimising PM interval under minimal repair.
+
+        Minimises  C(T) = (c_pm + c_cm (T/η)^β) / T, the long-run cost per
+        period of a PM every T periods with NHPP failures in between — the
+        same failure model the objective uses. dC/dT = 0 gives
+
+            T* = η × (c_pm / ((β − 1) × c_cm))^(1/β)
+
+        (Barlow & Hunter 1960, periodic replacement with minimal repair).
+        Needs β > 1: for β ≤ 1 the cost rate is decreasing in T and there is
+        no interior optimum, so inf is returned. The previous formula,
+        η (c_pm / (β (c_cm − c_pm)))^(1/β), minimised no cost rate in the
+        model and returned intervals 4–49% too short.
+        """
+        if self.weibull_beta <= 1 or self.cm_cost <= 0:
             return float('inf')
-        ratio = self.pm_cost / (self.weibull_beta * (self.cm_cost - self.pm_cost))
+        ratio = self.pm_cost / ((self.weibull_beta - 1) * self.cm_cost)
         return self.weibull_eta * (ratio ** (1.0 / self.weibull_beta))
 
 
@@ -207,10 +255,13 @@ class ProblemInstance:
 
     def task_cost(self, machine_id: int) -> dict:
         """
-        Compute the full cost of scheduling one PM task on this machine.
+        Price of ONE PM task on this machine taken in isolation.
         Returns breakdown: {pm, prod_loss, retooling, total}.
 
-        This is the "weight" of the item in the knapsack analogy.
+        This is the "weight" of the item in the knapsack analogy and the
+        per-event full-basis price. In a schedule, chain outages that are
+        shared with chain-mates cost less than this — see
+        ``core.costing.deterministic_cost`` for what a schedule really costs.
         """
         m = self.machines[machine_id]
         chain = self.get_chain_for_machine(machine_id)
@@ -269,6 +320,11 @@ class ProblemInstance:
             f"Max tasks/machine = {self.max_tasks_per_machine}",
             f"{'═'*70}",
         ]
+        imperfect = sorted({m.repair_factor for m in self.machines
+                            if m.repair_factor < 1.0})
+        if imperfect:
+            lines.append(" Imperfect PM (Kijima type I): repair factor "
+                         + ", ".join(f"{r:g}" for r in imperfect))
 
         if self.chains:
             lines.append("\n Production Chains:")

@@ -10,11 +10,13 @@ Four naive scheduling strategies for cost comparison:
                        (simple condition-based maintenance heuristic)
 
 When technicians conflict, tasks are shifted with greedy first-fit.
-Chain machines use chain production values for cost calculation.
+Every baseline is priced by ``core.costing.deterministic_cost`` — the same
+function that prices the optimiser's result — so the two are comparable.
 """
 
 import logging
 
+from core.costing import apply_task_attribution, deterministic_cost
 from core.instance import ProblemInstance
 from core.solver import MaintenanceTask, SolverResult
 
@@ -125,8 +127,7 @@ def fixed_interval_schedule(
                     d = machine.maintenance_duration
                     pm_c = machine.pm_cost
                     if chain:
-                        prod_c = chain.chain_value * d
-                        ret_c = chain.retooling_cost
+                        prod_c = ret_c = 0.0   # attributed once the schedule is known
                     else:
                         prod_c = machine.production_value * d
                         ret_c = 0
@@ -142,46 +143,31 @@ def fixed_interval_schedule(
                     ))
                     break
 
-    # Step 3: compute costs
-    total_pm = sum(t.cost_pm for t in tasks)
-    total_prod = sum(t.cost_prod_loss for t in tasks)
-    total_retool = sum(t.cost_retooling for t in tasks)
-    total_fail = 0.0
+    # Step 3: price the schedule with the SAME function the solver's
+    # result is priced with. Previously this block charged every chain
+    # event at full price while the solver's objective granted overlapping
+    # chain work a discount, so "savings vs best baseline" divided a
+    # discounted number by an undiscounted one.
+    breakdown = deterministic_cost(instance, actual)
 
-    chain_costs = {c.id: {"prod_loss": 0.0, "retooling": 0.0, "num_events": 0}
-                   for c in instance.chains}
+    # Restate per-task chain costs on the same basis as the totals: a
+    # shared outage is split among the tasks that share it.
+    apply_task_attribution(instance, tasks, actual)
 
-    for m_idx, machine in enumerate(instance.machines):
-        chain = instance.get_chain_for_machine(m_idx)
-        starts = sorted(actual[m_idx])
-        prev_end = 0
-        for s in starts:
-            total_fail += machine.expected_failure_cost(s - prev_end)
-            prev_end = s + machine.maintenance_duration
-            if chain:
-                chain_costs[chain.id]["num_events"] += 1
-        total_fail += machine.expected_failure_cost(H - prev_end)
-
-    for t in tasks:
-        if t.chain_id is not None:
-            chain_costs[t.chain_id]["prod_loss"] += t.cost_prod_loss
-            chain_costs[t.chain_id]["retooling"] += t.cost_retooling
-
-    total_cost = total_pm + total_prod + total_retool + total_fail
-
-    logger.info("Baseline %s: $%.2f (%d tasks)", strategy, total_cost, len(tasks))
+    logger.info("Baseline %s: $%.2f (%d tasks)", strategy,
+                breakdown.total, len(tasks))
 
     return SolverResult(
         status=f"BASELINE-{strategy}",
-        objective_value=total_cost,
+        objective_value=breakdown.total,
         solve_time_seconds=0.0,
         tasks=tasks,
-        total_pm_cost=total_pm,
-        total_production_loss=total_prod,
-        total_retooling_cost=total_retool,
-        total_failure_cost=total_fail,
+        total_pm_cost=breakdown.pm_cost,
+        total_production_loss=breakdown.production_loss,
+        total_retooling_cost=breakdown.retooling_cost,
+        total_failure_cost=breakdown.failure_cost,
         machine_schedules=actual,
-        chain_costs=chain_costs,
+        chain_costs=breakdown.chain_costs,
     )
 
 

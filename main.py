@@ -48,6 +48,15 @@ from utils.visualizer import (
 logger = logging.getLogger(__name__)
 
 
+def apply_repair_factor(instance, repair_factor: float) -> None:
+    """Kijima type I imperfect PM: each PM removes ``repair_factor`` of the
+    machine's accumulated age (1.0 = as new). Read by the solver's
+    objective, ``core.costing`` and the Monte Carlo simulator alike."""
+    if repair_factor < 1.0:
+        for m in instance.machines:
+            m.repair_factor = repair_factor
+
+
 def run_single(instance, output_dir="results", time_limit=60, verbose=True):
     """Run baselines + optimized for one instance. Return results dict."""
     os.makedirs(output_dir, exist_ok=True)
@@ -113,6 +122,9 @@ def run_single(instance, output_dir="results", time_limit=60, verbose=True):
         "RC": round(instance.resource_constrainedness, 3),
         "optimized": {
             "status": opt.status,
+            "model_variant": opt.model_variant,
+            "best_bound": round(opt.best_bound, 2),
+            "gap_pct": round(opt.gap_pct, 3),
             "cost": round(opt.objective_value, 2),
             "pm": round(opt.total_pm_cost, 2),
             "prod_loss": round(opt.total_production_loss, 2),
@@ -139,7 +151,7 @@ def run_single(instance, output_dir="results", time_limit=60, verbose=True):
     return data
 
 
-def run_demo(time_limit=30):
+def run_demo(time_limit=30, repair_factor=1.0):
     """Quick demo with three instance sizes."""
     print("=" * 60)
     print(" MaintAlign v2 — Demo Run")
@@ -155,6 +167,7 @@ def run_demo(time_limit=30):
 
     for idx, (label, gen) in enumerate(generators, 1):
         inst = gen()
+        apply_repair_factor(inst, repair_factor)
         print(f"\n[{idx}/{total}] ── {label.upper()} ──")
         r = run_single(inst, output_dir="results/demo", time_limit=time_limit)
         results.append(r)
@@ -231,7 +244,7 @@ def run_sensitivity():
     print("\n  Results saved to results/sensitivity/")
 
 
-def run_full(time_limit=60):
+def run_full(time_limit=60, repair_factor=1.0):
     """Full experiment suite."""
     print("=" * 60)
     print(" MaintAlign v2 — Full Suite")
@@ -256,6 +269,7 @@ def run_full(time_limit=60):
             run_idx += 1
             inst = gen(seed=seed)
             inst.name = f"{pname}_s{seed}"
+            apply_repair_factor(inst, repair_factor)
             print(f"\n  [{run_idx}/{total}] ── {inst.name} ──")
             r = run_single(inst, output_dir="results/full",
                           time_limit=time_limit, verbose=False)
@@ -325,9 +339,16 @@ Examples:
     parser.add_argument("--decompose", action="store_true",
                        help="Use decomposition for large instances")
     parser.add_argument("--repair-factor", type=float, default=1.0,
-                       help="PM repair factor: 1.0=perfect, 0.7=imperfect (default: 1.0)")
+                       help="Kijima type I imperfect PM: fraction of the machine's age "
+                            "a PM removes. 1.0 = as new (default), 0.7 = 30%% of the "
+                            "age is left behind")
 
     args = parser.parse_args()
+
+    if not (0.0 < args.repair_factor <= 1.0):
+        print(f"ERROR: --repair-factor must be in (0, 1], got {args.repair_factor}",
+              file=sys.stderr)
+        sys.exit(1)
 
     # Setup logging
     logging.basicConfig(
@@ -362,9 +383,8 @@ Examples:
             print(f"  Blocked {len(inst.blocked_periods)} weekend periods")
 
         if args.repair_factor < 1.0:
-            for m in inst.machines:
-                m.repair_factor = args.repair_factor
-            print(f"  Imperfect repair: factor={args.repair_factor}")
+            apply_repair_factor(inst, args.repair_factor)
+            print(f"  Imperfect repair (Kijima type I): factor={args.repair_factor}")
 
         if args.decompose and inst.num_machines > 15:
             result = solve_decomposed(inst, time_limit_seconds=args.time_limit)
@@ -391,15 +411,16 @@ Examples:
                       f"${r.var95:>9,.0f} {r.mean_failures:>9.1f}")
 
     elif args.full:
-        run_full(time_limit=args.time_limit)
+        run_full(time_limit=args.time_limit, repair_factor=args.repair_factor)
     elif args.sensitivity:
         run_sensitivity()
     elif args.instance:
         from core.instance import ProblemInstance
         inst = ProblemInstance.load(args.instance)
+        apply_repair_factor(inst, args.repair_factor)
         run_single(inst, time_limit=args.time_limit)
     else:
-        run_demo(time_limit=args.time_limit)
+        run_demo(time_limit=args.time_limit, repair_factor=args.repair_factor)
 
 
 if __name__ == "__main__":

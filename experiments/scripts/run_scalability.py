@@ -1,107 +1,134 @@
 """
 Experiment 1: Solver Scalability
-==================================
-Measures CP-SAT solve time as problem size increases.
+=================================
 
-Varies: number of machines (3, 6, 10, 15, 20)
-Holds constant: time limit (180s), solver workers (12)
-Repeats: 3 seeds per size
-Records: solve_time, objective_value, solver_status, num_tasks
+How large an instance can CP-SAT close, and how far from optimal is it when
+it cannot?
+
+WHAT CHANGED AND WHY
+--------------------
+The previous version recorded solve time and status but never the bound, so
+there was no way to tell "stopped 2% from optimal" from "stopped having
+made no progress". Since two thirds of the runs hit the time limit, the
+resulting plot of solve-time-against-size showed a flat line at 180 s that
+looked like convergence and was actually censoring.
+
+Every row now carries ``best_bound``, ``gap_pct`` and ``proved_optimal``
+alongside the time limit, solver version and platform. The honest scalability
+claim is about the fraction of instances proved optimal and the gap where
+they are not -- not about wall time, which is pinned to the limit by
+construction.
+
+USAGE
+-----
+    python experiments/scripts/run_scalability.py
+    python experiments/scripts/run_scalability.py --seeds 0 1 2 3 4 --time-limit 300
 """
 
-import csv
+import argparse
 import os
 import sys
 
-# Add project root to path
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
+sys.path.insert(0, os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from core.baseline import fixed_interval_schedule
-from core.solver import solve
-from utils.generator import generate_instance
+from _runner import (  # noqa: E402
+    RESULTS_DIR,
+    Checkpoint,
+    cost_columns,
+    provenance,
+    solver_columns,
+)
 
-OUTPUT_DIR = os.path.join(os.path.dirname(__file__), "..", "results")
-OUTPUT_FILE = os.path.join(OUTPUT_DIR, "scalability_results.csv")
+from core.baseline import ALL_STRATEGIES, fixed_interval_schedule  # noqa: E402
+from core.solver import solve  # noqa: E402
+from utils.generator import generate_instance  # noqa: E402
 
-# Problem sizes to test
-CONFIGS = [
-    # (label, num_machines, num_technicians, horizon, num_chains)
-    ("tiny",    3,  1, 12, 0),
-    ("small",   6,  2, 20, 1),
-    ("med_easy", 10, 4, 30, 2),
-    ("med_hard", 15, 4, 40, 3),
-    ("large",   20, 5, 50, 4),
+CONFIGS = {
+    "tiny":     (3,  1, 12, 0),
+    "small":    (6,  2, 20, 1),
+    "med_easy": (10, 4, 30, 2),
+    "med_hard": (15, 4, 40, 3),
+    "large":    (20, 5, 50, 4),
+}
+
+FIELDNAMES = [
+    "label", "seed", "num_machines", "num_technicians", "horizon",
+    "num_chains", "rc",
+    "total_cost", "pm_cost", "failure_cost", "prod_loss", "retooling_cost",
+    "num_tasks", "num_grouped_tasks", "total_cost_full_basis",
+    "best_baseline", "best_baseline_cost",
+    "status", "model_variant", "proved_optimal", "best_bound", "gap_pct",
+    "solve_time_sec",
+    "hit_time_limit", "time_limit_sec", "solver_version", "platform",
 ]
 
-SEEDS = [0, 1, 2]
-TIME_LIMIT = 180  # seconds per solve
+
+def parse_args():
+    p = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
+    p.add_argument("--time-limit", type=int, default=180)
+    p.add_argument("--only", nargs="+", choices=list(CONFIGS),
+                   default=list(CONFIGS))
+    p.add_argument("--fresh", action="store_true")
+    p.add_argument("--out", default=os.path.join(
+        RESULTS_DIR, "scalability_results.csv"))
+    return p.parse_args()
 
 
 def main():
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    args = parse_args()
+    prov = provenance(args.time_limit)
+    cp = Checkpoint(args.out, FIELDNAMES, ["label", "seed"], fresh=args.fresh)
 
-    rows = []
-    total_runs = len(CONFIGS) * len(SEEDS)
-    run_num = 0
+    todo = [(lbl, s) for lbl in args.only for s in args.seeds]
+    print("=" * 76)
+    print(f" Experiment 1: Solver scalability ({len(todo)} runs, "
+          f"limit {args.time_limit}s)")
+    print("=" * 76)
+    print(f" {'instance':<14}{'M':>4}{'RC':>7}{'time':>9}{'gap%':>8}"
+          f"{'status':>11}")
+    print(" " + "-" * 60)
 
-    print(f"{'='*65}")
-    print(f" Experiment 1: Solver Scalability ({total_runs} runs)")
-    print(f"{'='*65}")
+    for label, seed in todo:
+        if cp.done(label=label, seed=seed):
+            continue
+        M, K, T, C = CONFIGS[label]
+        inst = generate_instance(f"{label}_s{seed}", M, K, T,
+                                 num_chains=C, seed=seed)
 
-    for label, M, K, T, C in CONFIGS:
-        for seed in SEEDS:
-            run_num += 1
-            name = f"{label}_s{seed}"
-            inst = generate_instance(name, M, K, T, num_chains=C, seed=seed)
+        baselines = {s: fixed_interval_schedule(inst, s) for s in ALL_STRATEGIES}
+        best_name = min(baselines, key=lambda s: baselines[s].objective_value)
+        best = baselines[best_name]
 
-            # Get best baseline for warm-start hint
-            best_b = None
-            best_b_cost = float('inf')
-            for strat in ["analytical", "half_max", "max_interval", "condition_based"]:
-                b = fixed_interval_schedule(inst, strat)
-                if b.objective_value < best_b_cost:
-                    best_b_cost = b.objective_value
-                    best_b = b
+        res = solve(inst, time_limit_seconds=args.time_limit,
+                    hint_schedule=best.machine_schedules)
 
-            # Solve with CP-SAT
-            result = solve(
-                inst,
-                time_limit_seconds=TIME_LIMIT,
-                hint_schedule=best_b.machine_schedules if best_b else None,
-            )
+        row = {
+            "label": label, "seed": seed, "num_machines": M,
+            "num_technicians": K, "horizon": T, "num_chains": C,
+            "rc": round(inst.resource_constrainedness, 4),
+            "best_baseline": best_name,
+            "best_baseline_cost": round(best.objective_value, 2),
+            # A solve that stops within 2% of the limit stopped because of the
+            # limit, not because it finished. Marking that is the difference
+            # between a scalability plot and a picture of the time limit.
+            "hit_time_limit": int(
+                res.solve_time_seconds >= args.time_limit * 0.98),
+            **cost_columns(inst, res.machine_schedules),
+            **solver_columns(res),
+            **prov,
+        }
+        cp.append(row)
+        print(f" {label + '_s' + str(seed):<14}{M:>4}{row['rc']:>7.3f}"
+              f"{row['solve_time_sec']:>9.1f}{row['gap_pct']:>8.2f}"
+              f"{res.status:>11}")
 
-            row = {
-                "run_id": run_num,
-                "label": label,
-                "num_machines": M,
-                "num_technicians": K,
-                "horizon": T,
-                "num_chains": C,
-                "seed": seed,
-                "rc": round(inst.resource_constrainedness, 3),
-                "solve_time_sec": round(result.solve_time_seconds, 4),
-                "objective_value": round(result.objective_value, 2),
-                "status": result.status,
-                "num_tasks": len(result.tasks),
-                "best_baseline_cost": round(best_b_cost, 2),
-            }
-            rows.append(row)
-
-            print(f"  [{run_num:>2}/{total_runs}] {name:<16} "
-                  f"M={M:<3} K={K:<2} T={T:<3} "
-                  f"time={result.solve_time_seconds:>6.2f}s  "
-                  f"status={result.status:<8}  "
-                  f"cost=${result.objective_value:>10,.0f}")
-
-    # Write CSV
-    fieldnames = list(rows[0].keys())
-    with open(OUTPUT_FILE, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
-
-    print(f"\n Results saved to {OUTPUT_FILE}")
-    print(f" {len(rows)} rows written")
+    print(f"\n {len(cp)} rows in {os.path.normpath(args.out)}")
+    print(" Report the fraction proved optimal and the gap where it is not."
+          "\n Solve time alone is pinned to the limit and says nothing.")
 
 
 if __name__ == "__main__":
